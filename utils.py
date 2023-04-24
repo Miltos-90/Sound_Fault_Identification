@@ -1,3 +1,5 @@
+""" Set of utilities-related functions. """
+
 import os
 import numpy as np 
 import pandas as pd
@@ -33,10 +35,12 @@ def makeIndex(filePath: str):
 
 def readWav(filepath: str, micID: int = None):
     """ Reads a wav file recorded by microphone <micID>. If <micID> is 
-        not specified, it returns the recordings of all microphones
+        not specified, it returns the recordings of all microphones.
     """
 
     fs, data = wavfile.read(filepath) # Read file
     if micID: data = data[:, micID]   # Return specific mic. record
 
     return fs, data
+
+
