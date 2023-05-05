@@ -39,7 +39,9 @@ def readWav(filepath: str, micID: int = None):
     """
 
     fs, data = wavfile.read(filepath) # Read file
-    if micID: data = data[:, micID]   # Return specific mic. record
+    if micID is not None: 
+        data = data[:, micID]   # Return specific mic. record
+        data = data[:, None]    # Add a new axis for shape consistency
 
     return fs, data
 

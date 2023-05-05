@@ -1,4 +1,124 @@
+from scipy.signal.windows import hann
+from scipy.fft import fft, fftfreq
+from typing import Tuple
+import numpy as np
 
+""" Function used for the extraction of time-domain features """
+def timeDomainFeatures(sig: np.ndarray, axis: int = 0) -> dict:
+    ''' Extracts time domain features from a 2D-signal <sig> along a given axis '''
+
+    if sig is None: raise ValueError('Empty signal detected.')
+        
+    rmsVal  = np.sqrt(np.square(sig).mean(axis = axis))
+    sigMin  = sig.min(axis = axis)
+    absSig  = np.abs(sig)
+    sigMean = sig.mean(axis = axis)
+    absMean = absSig.mean(axis = axis)
+    peak    = absSig.max(axis = axis)
+    deAvg   = sig - sigMean
+    denom   = (deAvg ** 2).mean(axis = axis) # Denominator of the skewness and kurtosis calculations
+
+    features = {
+        'abs_mean' : absMean,
+        'std'      : np.std(sig, axis = axis),
+        'kurt'     : (deAvg ** 4).mean(axis = axis) / denom ** 2,
+        'skew'     : (deAvg ** 3).mean(axis = axis) / denom ** 3/2,
+        'rms'      : rmsVal,
+        'peak'     : peak,
+        'shape'    : rmsVal / absMean,
+        'crest'    : sig.max(axis = axis) / rmsVal,
+        'impulse'  : peak / absMean,
+        'clearance': peak / np.sqrt(absSig).mean( axis = axis ) ** 2,
+        }
+        
+    return features
+
+""" Functions used for the extraction of frequency domain features. """
+
+def _slidingWindow(sig: np.array, stride: int, overlap: float) -> np.array:
+    """
+    Segments a vibration signal into multiple chunks, with a given overlap.
+    Inputs:
+        sig:     Audio signal to be segmented [Num.samples x Num.channels]
+        stride:  Stride of the signal to generate the segments [Num. samples]
+        overlap: Segment overlap  [Fraction of segment stride]
+    Outputs:
+        out:     Segmented audio signal [Num. chunks x Num. samples of each segment x Num. channels]
+    """
+
+    if overlap >= 1 or overlap <= 0: raise ValueError('_slidingWindow(): Overlap shoule lie in (0, 1).')
+    if stride <= 0: raise ValueError('_slidingWindow(): Stride should be strictly positive.')
+
+    stride = int(stride) # Force integer
+
+    # Get stride and offset
+    noSamples, noChannels = sig.shape
+    offsetSamples = int((1-overlap) * stride)
+
+    if stride >= noSamples: 
+        raise ValueError(f'_slidingWindow(): Stride should be lower than {noSamples}')
+
+    # Compute start and end indices of each chunk, and the total number of chunks
+    startIdx = np.arange(start = 0, stop = noSamples, step = offsetSamples).astype(int)
+    endIdx   = np.arange(start = stride, stop = noSamples, step = offsetSamples).astype(int)
+    noChunks = np.min([endIdx.shape[0], startIdx.shape[0]])
+
+    # Make result matrix
+    out = np.empty(shape = (noChunks, stride, noChannels), dtype = sig.dtype)
+
+    for chunkNo, (start, stop) in enumerate(zip(startIdx, endIdx)):
+        out[chunkNo, ...] = sig[start:stop, :]
+
+    return out
+
+
+def _detrend(sig: np.array, axis = 1) -> np.array:
+    """
+    Detrends a signal by subtracting its mean value along an axis.
+    Inputs:
+        sig: Audio signal to be detrended [Num.samples x Num.channels]
+    Outputs:
+        out: De-trended audio signal
+    """
+
+    mu = np.mean(sig, axis = axis)
+    return sig - mu[:, None, :]
+
+
+def _transformFourier(chunks: np.array, sampleFrequency: int) -> Tuple[np.array, np.array]:
+    """ 
+    Computes the Fast Fourier Transformation (FFT) of the chunked signal. 
+    Input 
+    """
+
+    numSamples = chunks.shape[1] # Num samples of the audio signals
+
+    # Make and apply window
+    windowSig  = hann(M = numSamples)
+    corrFactor = 2.0 # Correction factor to be applied to the FFT levels for the Hann window
+    chunks *= windowSig[None, :, None]
+
+    # Compute FFT amplitudes
+    amplitudes  = fft(chunks, axis = 1)
+    amplitudes  = 2.0 / numSamples * np.abs(amplitudes[:, 0:numSamples//2, :])
+
+    # Compute frequencies
+    timeStep    = 1 / sampleFrequency
+    frequencies = fftfreq(numSamples, timeStep)[:numSamples//2]
+
+    # Cut-off HF
+    fMax         = frequencies.max() / 1.24 # Nyquist
+    idxtoKeep    = frequencies < fMax
+    frequencies  = frequencies[idxtoKeep]
+    amplitudes   = amplitudes[:, idxtoKeep, :]
+
+    # Amplitude Correction
+    amplitudes *= corrFactor
+
+    # Linear averaging of the amplitudes
+    amplitudes = amplitudes.mean(axis = 0)
+
+    return frequencies, amplitudes
 
 
 def makeOctaveFrequencies(band: float, fLim: list = [20, 20000]):
