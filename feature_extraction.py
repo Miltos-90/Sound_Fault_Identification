@@ -85,22 +85,30 @@ def _detrend(sig: np.array, axis = 1) -> np.array:
     return sig - mu[:, None, :]
 
 
-def _transformFourier(chunks: np.array, sampleFrequency: int) -> Tuple[np.array, np.array]:
+def _transformFourier(chunks: np.array, sampleFrequency: int, normalize = True) -> Tuple[np.array, np.array]:
     """ 
     Computes the Fast Fourier Transformation (FFT) of the chunked signal. 
-    Input 
+    Inputs:
+        chunks          : Chunked signal [Num. chunks x Num. samples x Num. channels]
+        sampleFrequency : Sampling frequency [Hz]
+        normalize       : Boolean indicating whether the FFT amplitudes should be normalized
+                          (i.e. multiplied by 2.0 / Num. samples)
+    Outputs:
+        frequencies     : Vector of frequencies for the corresponding FFT amplitudes
+        amplitudes      : FFT amplitudes [Num. chunks x Num. frequencies x Num. channels]
     """
 
     numSamples = chunks.shape[1] # Num samples of the audio signals
 
     # Make and apply window
     windowSig  = hann(M = numSamples)
-    corrFactor = 2.0 # Correction factor to be applied to the FFT levels for the Hann window
+    corrFactor = 1.50 # Correction factor to be applied for the Hann window
     chunks *= windowSig[None, :, None]
 
-    # Compute FFT amplitudes
+    # Compute (normalized) FFT amplitudes
     amplitudes  = fft(chunks, axis = 1)
-    amplitudes  = 2.0 / numSamples * np.abs(amplitudes[:, 0:numSamples//2, :])
+    amplitudes  = np.abs(amplitudes[:, 0:numSamples//2, :])
+    if normalize: amplitudes *= 2.0 / numSamples
 
     # Compute frequencies
     timeStep    = 1 / sampleFrequency
@@ -112,7 +120,7 @@ def _transformFourier(chunks: np.array, sampleFrequency: int) -> Tuple[np.array,
     frequencies  = frequencies[idxtoKeep]
     amplitudes   = amplitudes[:, idxtoKeep, :]
 
-    # Amplitude Correction
+    # Amplitude Correction due to windowing
     amplitudes *= corrFactor
 
     # Linear averaging of the amplitudes
@@ -121,12 +129,16 @@ def _transformFourier(chunks: np.array, sampleFrequency: int) -> Tuple[np.array,
     return frequencies, amplitudes
 
 
-def makeOctaveFrequencies(band: float, fLim: list = [20, 20000]):
+def _makeOctave(band: float, limits: list = [20, 20000]):
     """ Generator of center and high/low frequency limists for octave/fractional-octave bands
         lying within a given frequency range.
         Inputs:
-        * band : The octave band to compute for (1, 3/4, 1/2, 1/3, etc)
-        * fLim : Frequency range (by default it corresponds to the audible frequency range)
+            band  : The octave band to compute for (1, 3/4, 1/2, 1/3, etc)
+            limits: Frequency range (by default it corresponds to the audible frequency range)
+        Outputs:
+            frequency matrix with each row containing [low, center, high] frequencies for 
+            each band (number of bands is determined according to the frequency band and the 
+            user-defined frequency limits)
     """
 
     if band > 1 or band < 0: raise ValueError('Valid octave band range: (0, 1]')
@@ -139,14 +151,27 @@ def makeOctaveFrequencies(band: float, fLim: list = [20, 20000]):
         fCenter.insert(0, fCenter[0] / centerSpacing) # [Hz] Center frequency for this band
         fLow.insert(   0, fCenter[0] / edgeSpacing)   # [Hz] Min frequency for this band
         fHigh.insert(  0, fCenter[0] * edgeSpacing)   # [Hz] Max frequency for this band
-        if fLow[0] <= fLim[0]: break # Exit when the low frequency reaches the low-end of the acoustic spectrum
+        if fLow[0] <= limits[0] : break # Exit when the low frequency reaches the low-end of the acoustic spectrum
 
     while True: # Make upper half of the spectrum
         fLow.append(   fCenter[-1] / edgeSpacing)     # [Hz] Min frequency for this band
         fHigh.append(  fCenter[-1] * edgeSpacing)     # [Hz] Max frequency for this band
         fCenter.append(fCenter[-1] * centerSpacing)   # [Hz] Center frequency for this band
-        if fHigh[-1] >= fLim[1]: break # Exit when the high frequency exceeds the high-end of the acoustic spectrum
+        if fHigh[-1] >= limits[1]: break # Exit when the high frequency exceeds the high-end of the acoustic spectrum
 
     fCenter.pop() # Remove last center frequency (not needed)
 
     return np.column_stack((fLow, fCenter, fHigh)) # Convert to matrix
+
+
+def _makeGainCurve(fVec: np.array, fCenter: int, bandwidth: int) -> np.array:
+    """ Evaluates the gain-vs-efficiency curve of a 1/b-octave filter that meets the
+        Class 0 tolerance requirements of IEC 61260.
+        Inputs: 
+            fVec     : 1D frequency vector for which tha gains will be computed
+            fCenter  : Center (middle) - band frequency of the 1/b octave filter
+            bandwidth: Bandwidth designator (1 for full octave, 3 for 1/3 octave, ... etc)
+        Outputs:
+            g: Filter's gain
+    """
+    return ( 1 + ( (fVec/fCenter - fCenter/fVec) * 1.507 * bandwidth ) ** 6 ) ** (-1/2)
