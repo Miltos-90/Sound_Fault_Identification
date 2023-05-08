@@ -3,7 +3,16 @@ from scipy.fft import fft, fftfreq
 from typing import Tuple
 import numpy as np
 
-""" Function used for the extraction of time-domain features """
+"""
+This module implements the feature extraction process in the time- and frequency- domains.
+It is largely based on Section 4.4 of [1]
+
+References:
+[1] Niu, Gang. "Data-driven technology for engineering systems health management." Springer Singapore 10 (2017): 978-981.
+
+"""
+
+""" Functions used for the extraction of time-domain features """
 def timeDomainFeatures(sig: np.ndarray, axis: int = 0) -> dict:
     ''' Extracts time domain features from a 2D-signal <sig> along a given axis '''
 
@@ -34,6 +43,28 @@ def timeDomainFeatures(sig: np.ndarray, axis: int = 0) -> dict:
     return features
 
 """ Functions used for the extraction of frequency domain features. """
+
+""" Fourier transformation """
+
+def _windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
+    """ Computes the amplitude and energy correction factors for a window signal according to [1]. 
+        (agrees with the values reported in [2] for various windows.)
+        Inputs: window signal vector
+        Outputs:
+            (scalar) amplitude correction factor
+            (scalar) energy correction factor
+
+        References:
+        [1] Brandt, A., 2011. Noise and vibration analysis: signal analysis and experimental procedures. John Wiley & Sons.
+        [2] https://community.sw.siemens.com/s/article/window-correction-factors
+    """
+
+    n   = windowSignal.shape[0]                  # Signal length
+    acf = n / np.sum(windowSignal)               # Amplitude Correction Factor (Spectrum, Autopower, and Orders)
+    ecf = np.sqrt(n / np.sum(windowSignal ** 2)) # Energy Correction Factor (Power Spectral Density)
+
+    return acf, ecf
+
 
 def _slidingWindow(sig: np.array, stride: int, overlap: float) -> np.array:
     """
@@ -85,9 +116,9 @@ def _detrend(sig: np.array, axis = 1) -> np.array:
     return sig - mu[:, None, :]
 
 
-def _transformFourier(chunks: np.array, sampleFrequency: int, normalize = True) -> Tuple[np.array, np.array]:
+def _fftAndPower(chunks: np.array, sampleFrequency: int) -> Tuple[np.array, np.array]:
     """ 
-    Computes the Fast Fourier Transformation (FFT) of the chunked signal. 
+    Computes the Fast Fourier Transformation (FFT) and Power Spectral Density of the chunked signal. 
     Inputs:
         chunks          : Chunked signal [Num. chunks x Num. samples x Num. channels]
         sampleFrequency : Sampling frequency [Hz]
@@ -98,35 +129,70 @@ def _transformFourier(chunks: np.array, sampleFrequency: int, normalize = True) 
         amplitudes      : FFT amplitudes [Num. chunks x Num. frequencies x Num. channels]
     """
 
-    numSamples = chunks.shape[1] # Num samples of the audio signals
+    # Num samples of each chunk
+    numSamples = chunks.shape[1]
 
     # Make and apply window
     windowSig  = hann(M = numSamples)
-    corrFactor = 1.50 # Correction factor to be applied for the Hann window
     chunks *= windowSig[None, :, None]
 
-    # Compute (normalized) FFT amplitudes
-    amplitudes  = fft(chunks, axis = 1)
-    amplitudes  = np.abs(amplitudes[:, 0:numSamples//2, :])
-    if normalize: amplitudes *= 2.0 / numSamples
+    # Compute FFT amplitudes and power spectral density
+    sigF = fft(chunks, axis = 1)                
+    Sxx  = sigF * sigF.conj() / sampleFrequency
+    sigF = np.abs(sigF)
+    Sxx  = Sxx.real
+
+    # Ignore negative frequencies
+    Sxx  = Sxx[:, :numSamples//2, :] 
+    sigF = sigF[:, :numSamples//2, :]
+
+    # Normalize
+    sigF *= 2.0 / numSamples
+    Sxx  *= 2.0 / numSamples
+
+    # Apply window corrections
+    acf, ecf = _windowCorrectionFactors(windowSig)
+    sigF *= acf
+    Sxx  *= ecf
 
     # Compute frequencies
     timeStep    = 1 / sampleFrequency
     frequencies = fftfreq(numSamples, timeStep)[:numSamples//2]
 
-    # Cut-off HF
-    fMax         = frequencies.max() / 1.24 # Nyquist
-    idxtoKeep    = frequencies < fMax
+    # Cut-off at the highest frequency
+    fNyquist     = 1.0 / timeStep / 2.0 # Nyquist
+    idxtoKeep    = frequencies < fNyquist
+
     frequencies  = frequencies[idxtoKeep]
-    amplitudes   = amplitudes[:, idxtoKeep, :]
+    sigF         = sigF[:, idxtoKeep, :]
+    Sxx          = Sxx[:, idxtoKeep, :]
 
-    # Amplitude Correction due to windowing
-    amplitudes *= corrFactor
+    # Linear averaging
+    sigF = sigF.mean(axis = 0)
+    Sxx  = Sxx.mean(axis = 0)
 
-    # Linear averaging of the amplitudes
-    amplitudes = amplitudes.mean(axis = 0)
+    return frequencies, sigF, Sxx
 
-    return frequencies, amplitudes
+
+def spectra(sig: np.array, stride: int, overlap: int, frequency: int) -> Tuple[np.array, np.array]:
+    """ Preprocesses the signal and performs an FFT 
+        Inputs:
+            sig:        Audio signal to be segmented [Num.samples x Num. channels]
+            stride:     Stride of the signal to generate the segments [Num. samples]
+            overlap:    Segment overlap  [Fraction of segment stride]
+            frequency:  Sampling frequency [Hz] of the input signal <sig>
+        Outputs:
+            amplitudes: Amplitudes of one-dimensional n-point discrete Fourier Transform (DFT) applied
+                        along the last axis (challen dimension) of the input signal <sig>, with dime-
+                        nsions [n-points for FFT, Num. channels]
+            frequencies: Frequency vector of the corresponding amplitudes in [Hz] with dimensions [n-points for FFT]
+    """
+
+    chunks = _slidingWindow(sig, stride, overlap)
+    chunks = _detrend(chunks)
+    frequencies, fftLevels, powerLevels = _fftAndPower(chunks, frequency)
+
+    return frequencies, fftLevels, powerLevels
 
 
 def _makeOctave(band: float, limits: list = [20, 20000]):
@@ -175,3 +241,40 @@ def _makeGainCurve(fVec: np.array, fCenter: int, bandwidth: int) -> np.array:
             g: Filter's gain
     """
     return ( 1 + ( (fVec/fCenter - fCenter/fVec) * 1.507 * bandwidth ) ** 6 ) ** (-1/2)
+
+
+def octaveSpectrum(
+    frequencies: np.array, psdAmplitudes: np.array, bandwidthDesignator: int, referenceNoiseLevel: float
+    ) -> Tuple[np.array, np.array]:
+    """ Computes a 1/b octave spectrum from the FFT amplitudes nand frequencies (i.e. the output of
+        the FFT function).
+        Inputs:
+            frequencies:         Vector [Hz] designating the frequencies corresponding to the FFT amplitudes [num FFT points].
+            psdAmplitudes:       Power Spectral Density (psd) amplitudes [num. FFT points, num. channels]
+            bandwidthDesignator: (1 for full octave, 3 for 1/3 octave, ... etc)
+            referenceNoiseLevel: Reference level [dB] for the conversion of the amplitudes to [dB]
+        Outputs:
+            octaveCenterFrequencies: Frequency vector (x-axis) of the spectrum [Hz]
+            octaveNoiseLevels:       Noise matrix (y-axis) of the spectrum [num. frequncies, num.channels]
+    """
+    
+    # Get frequency bands for the given octave
+    octaveFrequencyRange = _makeOctave(band = 1 / bandwidthDesignator, limits = [20, frequencies.max()])
+    
+    # Matrix with PSD levels for each octave band [Num. bands, Num. channels]
+    octavePSD = np.zeros(shape = (octaveFrequencyRange.shape[0], psdAmplitudes.shape[1]))
+
+    # Compute PSD levels for each band
+    for band, (fLow, fCenter, fHigh) in enumerate(octaveFrequencyRange):
+
+        bandIndex          = (frequencies >= fLow ) & (frequencies <= fHigh )
+        bandFrequencies    = frequencies[bandIndex]
+        gainCurve          = _makeGainCurve(bandFrequencies, fCenter, bandwidthDesignator)
+        octavePSD[band, :] = (psdAmplitudes[bandIndex, :] * gainCurve[:, None] ** 2).sum(axis = 0)
+
+    # Make spectrum
+    octaveRMS               = np.sqrt(octavePSD)
+    octaveNoiseLevels       = 20 * np.log10(octaveRMS / referenceNoiseLevel)
+    octaveCenterFrequencies = octaveFrequencyRange[:, 1]
+
+    return octaveCenterFrequencies, octaveNoiseLevels
