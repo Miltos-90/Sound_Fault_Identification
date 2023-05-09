@@ -33,7 +33,7 @@ def makeIndex(filePath: str):
     return pd.DataFrame(data, columns = cols)
 
 
-def readWav(filepath: str, micID: int = None):
+def readWav(filepath: str, micID: int = None, signalType = None):
     """ Reads a wav file recorded by microphone <micID>. If <micID> is 
         not specified, it returns the recordings of all microphones.
     """
@@ -43,6 +43,7 @@ def readWav(filepath: str, micID: int = None):
         data = data[:, micID]   # Return specific mic. record
         data = data[:, None]    # Add a new axis for shape consistency
 
+    if signalType: data = data.astype(signalType)
     return fs, data
 
 
