@@ -82,17 +82,18 @@ def _detrend(sig: np.array, axis = 1) -> np.array:
     return sig - mu[:, None, :]
 
 
-def _fftAndPower(chunks: np.array, sampleFrequency: int) -> Tuple[np.array, np.array]:
+def _fftAndPower(chunks: np.array, sampleFrequency: int, averaging: bool = True) -> Tuple[np.array, np.array]:
     """ 
-    Computes the Fast Fourier Transformation (FFT) and Power Spectral Density of the chunked signal. 
+    Computes the Fast Fourier Transformation (FFT) and Power Spectral Density (PSD_) of the chunked signal. 
     Inputs:
         chunks          : Chunked signal [Num. chunks x Num. samples x Num. channels]
         sampleFrequency : Sampling frequency [Hz]
-        normalize       : Boolean indicating whether the FFT amplitudes should be normalized
+        averaging       : Boolean indicating whether the FFT amplitudes and PSD should be (linearly) averaged
                           (i.e. multiplied by 2.0 / Num. samples)
     Outputs:
         frequencies     : Vector of frequencies for the corresponding FFT amplitudes
-        amplitudes      : FFT amplitudes [Num. chunks x Num. frequencies x Num. channels]
+        amplitudes      : FFT amplitudes [Num. chunks x Num. frequencies x Num. channels] if averaging is set to False
+                            [Num. frequencies x Num. channels] if averaging is set to True
     """
 
     # Num samples of each chunk
@@ -133,9 +134,10 @@ def _fftAndPower(chunks: np.array, sampleFrequency: int) -> Tuple[np.array, np.a
     sigF        = sigF[:, idxtoKeep, :]
     Sxx         = Sxx[:, idxtoKeep, :]
 
-    # Linear averaging
-    sigF = sigF.mean(axis = 0)
-    Sxx  = Sxx.mean(axis = 0)
+    # Linear averaging (if needed)
+    if averaging:
+        sigF = sigF.mean(axis = 0)
+        Sxx  = Sxx.mean(axis = 0)
 
     return frequencies, sigF, Sxx
 
