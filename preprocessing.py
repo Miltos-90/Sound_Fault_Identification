@@ -106,9 +106,7 @@ def _fftAndPower(chunks: np.array, sampleFrequency: int, averaging: bool = True)
     # Compute FFT and power spectral density
     sigF = fft(chunks, axis = 1)                
     Sxx  = sigF * sigF.conj() / sampleFrequency
-    sigF = np.abs(sigF)
-    Sxx  = Sxx.real
-
+    
     # Ignore negative frequencies
     Sxx  = Sxx[:, :numSamples//2, :] 
     sigF = sigF[:, :numSamples//2, :]
@@ -217,7 +215,7 @@ def octaveSpectrum(
         bandIndex          = (frequencies >= fLow ) & (frequencies <= fHigh )
         bandFrequencies    = frequencies[bandIndex]
         gainCurve          = _makeGainCurve(bandFrequencies, fCenter, bandwidthDesignator)
-        octavePSD[band, :] = (psdAmplitudes[bandIndex, :] * gainCurve[:, None] ** 2).sum(axis = 0)
+        octavePSD[band, :] = (psdAmplitudes.real[bandIndex, :] * gainCurve[:, None] ** 2).sum(axis = 0)
 
     # Make spectrum
     octaveRMS               = np.sqrt(octavePSD)
