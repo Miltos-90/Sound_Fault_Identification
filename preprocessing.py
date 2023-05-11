@@ -4,19 +4,15 @@ from typing import Tuple
 import numpy as np
 
 """
-This module implements the feature extraction process in the time- and frequency- domains.
-It is largely based on Section 4.4 of [1]
+This module implements the preprocessing steps mentioned in Section 2 of:
 
-References:
-[1] Niu, Gang. "Data-driven technology for engineering systems health management." Springer Singapore 10 (2017): 978-981.
+"A large set of audio features for sound description (similarity and classification)
+in the CUIDADO project", Peeters G., 2004.
 
+URL: http://recherche.ircam.fr/anasyn/peeters/ARTICLES/Peeters_2003_cuidadoaudiofeatures.pdf
+(accessed 11/05/2023)
 """
 
-
-
-""" Functions used for the extraction of frequency domain features. """
-
-""" Fourier transformation """
 
 def _windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
     """ Computes the amplitude and energy correction factors for a window signal according to [1]. 
@@ -38,7 +34,7 @@ def _windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
     return acf, ecf
 
 
-def _sliceArray(signal: np.array, frameSize: int, hopSize: int, axis = -1) -> np.array:
+def sliceArray(signal: np.array, frameSize: int, hopSize: int, axis = -1) -> np.array:
     """
     Slices an array into overlapping (or non-overlapping) frames along a specified axis, 
     using stride manipulation
@@ -69,7 +65,7 @@ def _sliceArray(signal: np.array, frameSize: int, hopSize: int, axis = -1) -> np
     return np.lib.stride_tricks.as_strided(signal, shape = newShape, strides = newStrides)
 
 
-def _detrend(sig: np.array, axis = 1) -> np.array:
+def detrend(sig: np.array, axis = 1) -> np.array:
     """
     Detrends a signal by subtracting its mean value along an axis.
     Inputs:
@@ -82,29 +78,29 @@ def _detrend(sig: np.array, axis = 1) -> np.array:
     return sig - mu[:, None, :]
 
 
-def _fftAndPower(chunks: np.array, sampleFrequency: int, averaging: bool = True) -> Tuple[np.array, np.array]:
+def fftSpectrum(signal: np.array, sampleFrequency: int, averaging: bool = True) -> Tuple[np.array, np.array]:
     """ 
     Computes the Fast Fourier Transformation (FFT) and Power Spectral Density (PSD_) of the chunked signal. 
     Inputs:
-        chunks          : Chunked signal [Num. chunks x Num. samples x Num. channels]
+        signal          : Chunked signal [Num. frames x Num. samples x Num. channels]
         sampleFrequency : Sampling frequency [Hz]
         averaging       : Boolean indicating whether the FFT amplitudes and PSD should be (linearly) averaged
                           (i.e. multiplied by 2.0 / Num. samples)
     Outputs:
         frequencies     : Vector of frequencies for the corresponding FFT amplitudes
-        amplitudes      : FFT amplitudes [Num. chunks x Num. frequencies x Num. channels] if averaging is set to False
+        amplitudes      : FFT amplitudes [Num. frames x Num. frequencies x Num. channels] if averaging is set to False
                             [Num. frequencies x Num. channels] if averaging is set to True
     """
 
     # Num samples of each chunk
-    numSamples = chunks.shape[1]
+    numSamples = signal.shape[1]
 
     # Make and apply window
     windowSig  = hann(M = numSamples)
-    chunks *= windowSig[None, :, None]
+    signal *= windowSig[None, :, None]
 
     # Compute FFT and power spectral density
-    sigF = fft(chunks, axis = 1)                
+    sigF = fft(signal, axis = 1)                
     Sxx  = sigF * sigF.conj() / sampleFrequency
     
     # Ignore negative frequencies

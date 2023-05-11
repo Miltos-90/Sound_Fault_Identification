@@ -9,15 +9,15 @@ def rms(signal: np.array, axis: int):
 def skewness(signal: np.array, axis: int):
     """ Evaluates the skewness of a signal along the given axis. """
 
-    deAvg   = signal - signal.mean(axis = axis)
-    denom   = (deAvg ** 2).mean(axis = axis)
+    deAvg = signal - signal.mean(axis = axis)
+    denom = (deAvg ** 2).mean(axis = axis)
     return (deAvg ** 3).mean(axis = axis) / denom ** 3/2
 
 def kurtosis(signal: np.array, axis: int):
     """ Evaluates the kurtosis of a signal along the given axis. """
 
-    deAvg   = signal - signal.mean(axis = axis)
-    denom   = (deAvg ** 2).mean(axis = axis)
+    deAvg = signal - signal.mean(axis = axis)
+    denom = (deAvg ** 2).mean(axis = axis)
     return (deAvg ** 4).mean(axis = axis) / denom ** 2
 
 def peak(signal: np.array, axis: int):
