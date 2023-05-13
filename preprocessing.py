@@ -46,17 +46,18 @@ def sliceArray(signal: np.array, frameSize: int, hopSize: int, axis = -1) -> np.
     # Create a view of the original data array with the new shape and strides
     return np.lib.stride_tricks.as_strided(signal, shape = newShape, strides = newStrides)
 
-def detrend(sig: np.array, axis = 1) -> np.array:
+def detrend(signal: np.array, axis: int) -> np.array:
     """
     Detrends a signal by subtracting its mean value along an axis.
     Inputs:
-        sig: Audio signal to be detrended [Num.samples x Num.channels]
+        signal: Signal to be detrended
+        axis: Axis alogn which to detrend.
     Outputs:
-        out: De-trended audio signal
+        out: De-trended signal
     """
 
-    mu = np.mean(sig, axis = axis)
-    return sig - mu[:, None, :]
+    mu = np.mean(signal, axis = axis)
+    return signal - np.expand_dims(mu, axis = axis)
 
 # =================== Frequency spectra related functions =====================
 def _windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
@@ -78,62 +79,45 @@ def _windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
 
     return acf, ecf
 
-def fftSpectrum(signal: np.array, sampleFrequency: int, averaging: bool = True) -> Tuple[np.array, np.array]:
+def fftSpectrum(signal: np.array, sampleFrequency: int, axis: int) -> Tuple[np.array, np.array]:
     """ 
     Computes the Fast Fourier Transformation (FFT) and Power Spectral Density (PSD_) of the chunked signal. 
     Inputs:
         signal          : Chunked signal [Num. frames x Num. samples x Num. channels]
         sampleFrequency : Sampling frequency [Hz]
-        averaging       : Boolean indicating whether the FFT amplitudes and PSD should be (linearly) averaged
-                          (i.e. multiplied by 2.0 / Num. samples)
+        axis            : Axis along which to apply the FFT
     Outputs:
         frequencies     : Vector of frequencies for the corresponding FFT amplitudes
-        amplitudes      : FFT amplitudes [Num. frames x Num. frequencies x Num. channels] if averaging is set to False
-                            [Num. frequencies x Num. channels] if averaging is set to True
+        amplitudes      : FFT amplitudes on the above frequencies
     """
 
     # Num samples of each chunk
-    numSamples = signal.shape[1]
+    numSamples = signal.shape[axis]
 
     # Make and apply window
     windowSig  = hann(M = numSamples)
-    signal *= windowSig[None, :, None]
+    axesExpand = list(range(signal.ndim)) # Axes along which to expand the window
+    axesExpand.remove(axis)
+    signal *= np.expand_dims(windowSig, axesExpand)
 
     # Compute FFT and power spectral density
-    sigF = fft(signal, axis = 1)                
-    Sxx  = sigF * sigF.conj() / sampleFrequency
-    
-    # Ignore negative frequencies
-    Sxx  = Sxx[:, :numSamples//2, :] 
-    sigF = sigF[:, :numSamples//2, :]
-
-    # Normalize
-    sigF *= 2.0 / numSamples
-    Sxx  *= 2.0 / numSamples
+    freqs = fftfreq(numSamples, 1 / sampleFrequency)
+    sigF  = fft(signal, axis = axis, norm = "ortho")                
+    Sxx   = sigF * sigF.conj() / sampleFrequency
 
     # Apply window corrections
     acf, ecf = _windowCorrectionFactors(windowSig)
     sigF *= acf
     Sxx  *= ecf
 
-    # Compute frequencies
-    timeStep    = 1 / sampleFrequency
-    frequencies = fftfreq(numSamples, timeStep)[:numSamples//2]
+    # Cut-off at the highest frequency and ignre negative frequencies
+    fNyquist  = sampleFrequency / 2.0
+    keep      = np.where( (freqs >= 0) & (freqs < fNyquist) )[0]
+    freqs     = freqs[keep]
+    sigF      = sigF.take(keep, axis = axis)
+    Sxx       = Sxx.take(keep, axis = axis)
 
-    # Cut-off at the highest frequency
-    fNyquist    = 1.0 / timeStep / 2.0 # Nyquist
-    idxtoKeep   = frequencies < fNyquist
-
-    frequencies = frequencies[idxtoKeep]
-    sigF        = sigF[:, idxtoKeep, :]
-    Sxx         = Sxx[:, idxtoKeep, :]
-
-    # Linear averaging (if needed)
-    if averaging:
-        sigF = sigF.mean(axis = 0)
-        Sxx  = Sxx.mean(axis = 0)
-
-    return frequencies, sigF, Sxx
+    return freqs, sigF, Sxx
 
 def _makeOctave(band: float, limits: list = [20, 20000]):
     """ Generator of center and high/low frequency limists for octave/fractional-octave bands
@@ -220,7 +204,7 @@ def todb(array: np.array, reference = 1.0):
     """ Convert an array to decibels [dB], relative to the specified reference level.
         Inputs:
             array: Array to convert to [dB]
-            reference: The reference level [in the units of the RMS value]
+            reference: The reference level [in the units of the array]
         Outputs: 
             The array translated to [dB]
 
@@ -278,19 +262,23 @@ def sinusoidalHarmonicModel(frequencies: np.array, amplitudes: np.array, harmoni
     fundamental = frequencies[peakIndex]
 
     # Compute sinusoidal harmonic frequencies and corresponding amplitudes
-    frames, _, channels = amplitudes.shape
-    harmonicFreqs = np.empty(shape = (frames, harmonics, channels))
-    harmonicAmps  = np.empty(shape = (frames, harmonics, channels))
+    frames        = amplitudes.shape[0]
+    channels      = amplitudes.shape[2]
+    shape         = (frames, harmonics, channels)
+    harmonicFreqs = np.empty(shape = shape, dtype = frequencies.dtype)
+    harmonicAmps  = np.empty(shape = shape, dtype = amplitudes.dtype)
+    freqExpanded  = np.expand_dims(frequencies, axis = tuple(range(1, amplitudes.ndim)))
 
     for hNo in range(1, harmonics + 1):
 
         # Get the spectrum frequency that is closest to the current harmonic frequency
-        diff = frequencies[:, None, None] - fundamental * hNo
+        diff = freqExpanded - fundamental * hNo
         idx  = np.abs(diff).argmin(axis = 0)
         harmonicFreqs[:, hNo-1, :] = frequencies[idx]
 
         # get the corresponding amplitude
-        curAmps = np.take_along_axis(amplitudes, idx[:, None, :], axis = axis)
+        idx     = np.expand_dims(idx, axis = axis)
+        curAmps = np.take_along_axis(amplitudes, idx, axis = axis)
         harmonicAmps[:, hNo-1, :] = np.squeeze(curAmps, axis = axis)
         
     return harmonicFreqs, harmonicAmps
@@ -354,32 +342,33 @@ def middleEarFilter(sampleFrequency: int, plot: bool = False, **kwargs) -> Tuple
     def transform(data: np.array, fs: int) -> Tuple[np.array, np.array]:
         """ Processes the data according to the sampling frequency <fs> [Hz] and transforms it 
             in a suitable format for the scipy.signal.firwin2 function.
-         """
+            """
 
+        fs2 = fs / 2
         if fs <= 20000:
             # Cut the table because the sampling frequency is too low to accomodate the full range.
-            indx = np.where(data[:, 0] < fs / 2)[0]
+            indx = np.where(data[:, 0] < fs2)[0]
             data = data[:indx[-1] + 1, :]
         else:
-            # otherwise the table will be extrapolated towards sampleFrequency/2
+            # otherwise the table will be extrapolated towards fs/2
             # data point added every 1000Hz
             lgth = data.shape[0]
-            for ii in range(1, int((fs/2 - data[-1, 0])/1000) + 1):
+            for _ in range(1, int((fs2 - data[-1, 0])/1000) + 1):
                 data = np.vstack([data, [data[-1, 0] + 1000, data[-1, 1] / 1.1]])
             
         # for the function firwin2 the last data point has to be at fs/2
         lgth = data.shape[0]
-        if data[-1, 0] != fs/2:
+        if data[-1, 0] != fs2:
             data = np.vstack([
                 data, 
-                [fs/2, data[-1, 1] / (1 + (fs/2 - data[-1, 0]) * 0.1/1000)]
+                [fs2, data[-1, 1] / (1 + (fs2 - data[-1, 0]) * 0.1/1000)]
                 ])
             
         # Extract the frequencies and amplitudes, and put them in the format that firwin2 likes.
-        freq = np.hstack([0, data[:, 0]*(2/sampleFrequency)])
-        ampl = np.hstack([0, data[:, 1]])
+        freq = np.hstack([0, data[:, 0] * (2/fs)]) # Frequency [Hz]
+        ampl = np.hstack([0, data[:, 1]])          # Stapes peak velocity [m/s]
 
-        return freq, ampl
+        return freq, ampl / ampl.max() # Frequency [Hz], Amplitude [-]
 
     def toMinPhaseFilter(coeffs: np.array) -> np.array:
         """ Converts the  filter coefficients of the FIR filter (output of the firwin2 function) 
@@ -396,7 +385,7 @@ def middleEarFilter(sampleFrequency: int, plot: bool = False, **kwargs) -> Tuple
         """ Plots the response of the filter """
 
         plt.figure(figsize = (6, 4))
-        plt.semilogx(freqs, todb(abs(response), 20e-6))
+        plt.semilogx(freqs, todb(response, 1))
         plt.title('Middle ear filter frequency response')
         plt.xlabel('Frequency [Hz]')
         plt.ylabel('Magnitude [dB re 20uPa]')
@@ -404,9 +393,9 @@ def middleEarFilter(sampleFrequency: int, plot: bool = False, **kwargs) -> Tuple
 
         return
 
+    order = 511                                      # IIR Filter order
     data  = load()
     freq, ampl = transform(data, sampleFrequency)    # Load and process filter data
-    order = 513                                      # IIR Filter order
     b     = firwin2(order, freq, ampl)               # Design filter
     b     = toMinPhaseFilter(b)                      # To minimum phase
     w, h  = freqz(b, fs = sampleFrequency, **kwargs) # Compute frequency response
