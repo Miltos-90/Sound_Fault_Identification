@@ -79,11 +79,11 @@ def _windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
 
     return acf, ecf
 
-def fftSpectrum(signal: np.array, sampleFrequency: int, axis: int) -> Tuple[np.array, np.array]:
+def fourierTransformation(signal: np.array, sampleFrequency: int, axis: int) -> Tuple[np.array, np.array]:
     """ 
-    Computes the Fast Fourier Transformation (FFT) and Power Spectral Density (PSD_) of the chunked signal. 
+    Computes the Fast Fourier Transformation (FFT) of a signal along an axis
     Inputs:
-        signal          : Chunked signal [Num. frames x Num. samples x Num. channels]
+        signal          : n-Dimensional array for the FFT computation
         sampleFrequency : Sampling frequency [Hz]
         axis            : Axis along which to apply the FFT
     Outputs:
@@ -102,22 +102,33 @@ def fftSpectrum(signal: np.array, sampleFrequency: int, axis: int) -> Tuple[np.a
 
     # Compute FFT and power spectral density
     freqs = fftfreq(numSamples, 1 / sampleFrequency)
-    sigF  = fft(signal, axis = axis, norm = "ortho")                
-    Sxx   = sigF * sigF.conj() / sampleFrequency
+    sigF  = fft(signal, axis = axis, norm = "ortho")
 
     # Apply window corrections
-    acf, ecf = _windowCorrectionFactors(windowSig)
+    acf, _ = _windowCorrectionFactors(windowSig)
     sigF *= acf
-    Sxx  *= ecf
-
+    
     # Cut-off at the highest frequency and ignre negative frequencies
     fNyquist  = sampleFrequency / 2.0
     keep      = np.where( (freqs >= 0) & (freqs < fNyquist) )[0]
     freqs     = freqs[keep]
     sigF      = sigF.take(keep, axis = axis)
-    Sxx       = Sxx.take(keep, axis = axis)
 
-    return freqs, sigF, Sxx
+    return freqs, sigF
+
+def powerSpectralDensity(spectrum: np.array, sampleFrequency: int) -> np.array:
+    """ Computes the power spectral density (PSD) from the FFT spectrum. 
+        Inputs:
+            signal          : n-Dimensional array for the FFT computation
+            sampleFrequency : Sampling frequency [Hz]
+        Outputs:
+            amplitudes: PSD amplitudes
+    """
+
+    _, ecf = _windowCorrectionFactors(hann(M = spectrum.shape[0]))
+    Sxx = spectrum * spectrum.conj() / sampleFrequency
+
+    return Sxx.real * ecf
 
 def _makeOctave(band: float, limits: list = [20, 20000]):
     """ Generator of center and high/low frequency limists for octave/fractional-octave bands
@@ -165,49 +176,74 @@ def _makeGainCurve(fVec: np.array, fCenter: int, bandwidth: int) -> np.array:
     """
     return ( 1 + ( (fVec/fCenter - fCenter/fVec) * 1.507 * bandwidth ) ** 6 ) ** (-1/2)
 
-def octaveSpectrum(
-    frequencies: np.array, psdAmplitudes: np.array, bandwidthDesignator: int, referenceNoiseLevel: float
-    ) -> Tuple[np.array, np.array]:
+def octaveSpectrum(frequencies: np.array, amplitudes: np.array, bandwidthDesignator: int, axis: int) -> Tuple[np.array, np.array]:
     """ Computes a 1/b octave spectrum from the FFT amplitudes nand frequencies (i.e. the output of
         the FFT function).
         Inputs:
-            frequencies:         Vector [Hz] designating the frequencies corresponding to the FFT amplitudes [num FFT points].
-            psdAmplitudes:       Power Spectral Density (psd) amplitudes [num. FFT points, num. channels]
-            bandwidthDesignator: (1 for full octave, 3 for 1/3 octave, ... etc)
-            referenceNoiseLevel: Reference level [dB] for the conversion of the amplitudes to [dB]
+            frequencies         : Vector designating the frequencies corresponding to the FFT amplitudes [Hz].
+            amplitudes          : Power Spectral Density (psd) amplitudes
+            bandwidthDesignator : (1 for full octave, 3 for 1/3 octave, ... etc)
+            axis                :  Axis of the psd amplitudes along which to compute the spectrum
         Outputs:
-            octaveCenterFrequencies: Frequency vector (x-axis) of the spectrum [Hz]
-            octaveNoiseLevels:       Noise matrix (y-axis) of the spectrum [num. frequncies, num.channels]
+            octaveCenterFrequencies : Frequency vector (x-axis) of the spectrum [Hz]
+            octaveNoiseLevels       : Noise matrix (y-axis) of the spectrum [num. frequncies, num.channels]
     """
-    
+
     # Get frequency bands for the given octave
-    octaveFrequencyRange = _makeOctave(band = 1 / bandwidthDesignator, limits = [20, frequencies.max()])
-    
-    # Matrix with PSD levels for each octave band [Num. bands, Num. channels]
-    octavePSD = np.zeros(shape = (octaveFrequencyRange.shape[0], psdAmplitudes.shape[1]))
+    octaveBand      = 1/bandwidthDesignator
+    frequencyLimits = [20, frequencies.max()]
+    frequencyRange  = _makeOctave(octaveBand, frequencyLimits)
+
+    # Matrix with PSD levels for each octave band
+    # Matrix shape: Along the axis on which the octave calculation will be 
+    # performed the size is equal to the size of the frequency vector.
+    # Along the axis on which the octave calculation will be performed
+    # the size is equal to the size of the frequency vector
+    shape       = list(amplitudes.shape)
+    shape[axis] = frequencyRange.shape[0]
+    octavePSD   = np.zeros(shape = shape)
 
     # Compute PSD levels for each band
-    for band, (fLow, fCenter, fHigh) in enumerate(octaveFrequencyRange):
 
-        bandIndex          = (frequencies >= fLow ) & (frequencies <= fHigh )
-        bandFrequencies    = frequencies[bandIndex]
-        gainCurve          = _makeGainCurve(bandFrequencies, fCenter, bandwidthDesignator)
-        octavePSD[band, :] = (psdAmplitudes.real[bandIndex, :] * gainCurve[:, None] ** 2).sum(axis = 0)
+    # The dimensions of various quantities in the loop below will need to be 
+    # expanded to match the dimensions of the input in all other axis apart
+    # from the one given as an input (the one over which the octave levels are
+    # being evaluated). The below two lines define a convenient wrapper to 
+    # expand the dimensions on-the-fly.
+    axes2expand = [dim for dim in range(amplitudes.ndim) if dim != axis]
+    expand      = lambda arr: np.expand_dims(arr, axis = axes2expand)
+
+    for bandNo, (fLow, fCenter, fHigh) in enumerate(frequencyRange):
+
+        # Get the narrowband frequencies corresponding to this octave
+        bandIdx   = np.where( (frequencies >= fLow ) & (frequencies <= fHigh ) )[0]
+        bandFreqs = frequencies[bandIdx]
+
+        # Compute the gain-efficiency curve
+        gain = _makeGainCurve(bandFreqs, fCenter, bandwidthDesignator)
+        
+        # Grab the PSD amplitudes corresponding to this band
+        curPSD = np.take_along_axis(amplitudes, expand(bandIdx), axis = axis)
+
+        # Compute amplitude for this octave
+        octaveAmpl = (curPSD * expand(gain ** 2)).sum(axis = axis, keepdims = True)
+
+        # Put octave levels in the matrix
+        np.put_along_axis(octavePSD, indices = expand([bandNo]), values = octaveAmpl, axis = axis)
 
     # Make spectrum
-    octaveNoiseLevels       = np.sqrt(octavePSD)
-    octaveCenterFrequencies = octaveFrequencyRange[:, 1]
+    noiseLevels       = np.sqrt(octavePSD)
+    centerFrequencies = frequencyRange[:, 1]
 
-    return octaveCenterFrequencies, octaveNoiseLevels
+    return centerFrequencies, noiseLevels
 
 def todb(array: np.array, reference = 1.0):
     """ Convert an array to decibels [dB], relative to the specified reference level.
         Inputs:
-            array: Array to convert to [dB]
+            array    : Array to convert to [dB]
             reference: The reference level [in the units of the array]
         Outputs: 
             The array translated to [dB]
-
     """
     return 20 * np.log10(np.abs(array) / reference)
 
