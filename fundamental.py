@@ -1,11 +1,13 @@
 """ This module implements the fundamental frequency estimation based on the YIN algorithm [1].
     The code is adapted from [2] in order to work with input signals of arbitrary dimensions, and 
     the computations are being performed (fully vectorized) along an axis specified by the user.
+    A discussion on alternative methods for the same purpose can be found on [3].
 
 References:
 [1] De Cheveigné, A., & Kawahara, H. (2002). YIN, a fundamental frequency estimator for 
     speech and music. The Journal of the Acoustical Society of America, 111(4), 1917-1930.
 [2] https://github.com/patriceguyot/Yin (last accessed: May 2023)
+[3] https://www.dsprelated.com/freebooks/sasp/Fundamental_Frequency_Estimation_Spectral.html (last accessed: May 2023)
 """
 
 import numpy as np
