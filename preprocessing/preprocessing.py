@@ -211,9 +211,7 @@ def findPeaks(
         Notes: If less than <npeaks> peaks exist, a smaller number of peaks will be returned.
     """
 
-    # Shape of the output arrays
-    sh = list(x.shape)
-
+    sh          = list(x.shape) # Shape that the output arrays should have
     sh[axis]    = 1
     numDims     = x.ndim
     numSamples  = x.shape[axis]
@@ -239,14 +237,24 @@ def findPeaks(
         peakLocs[mask]   = ploc[acc]
         peakAmps[mask]   = pamp[acc]
         peakWidths[mask] = -1 / pcurv[acc]
-        
+
         # Increment counter and update exit criteria
         ipeak[acc]        += 1
         numRejected[~acc] += 1
         numRejected[acc]  = 0
         stop[numRejected  >= maxRejected] = True
 
-    return peakAmps, peakLocs, peakWidths
+    # Get indices with all-zero peak locations (i.e. peaks not found)
+    sAxes      = tuple([ax for ax in range(x.ndim) if ax != axis])
+    nonZero    = np.where(~(peakLocs == 0).all(axis = sAxes))[0]
+
+    # Remove the corresponding sub-arrays
+    peakLocs   = np.take(peakLocs, nonZero, axis)
+    peakAmps   = np.take(peakAmps, nonZero, axis)
+    peakWidths = np.take(peakWidths, nonZero, axis)
+
+
+    return peakLocs, peakAmps, peakWidths
 
 
 def sinusoidalHarmonicModel(frequencies: np.array, amplitudes: np.array, harmonics: int, axis: int):
