@@ -161,7 +161,7 @@ def getPeakStart(peakLoc: np.array, peakAmp: np.array, tol: np.array, x: np.arra
     return lowLim
 
 
-def accept(
+def acceptPeaks(
     lowLim: np.array, upLim: np.array, minWidth: int, stop: np.array, 
     ipeak: np.array, peaklocs: np.array, ndim: int, axis: int) -> Tuple[np.array, np.array]:
     """ Computes the location (index) of the start of the current peak.
@@ -231,7 +231,7 @@ def findPeaks(
         llim       = getPeakStart(ploc, pamp, tol, x, axis)
         x          = removePeak(camp, ulim, llim, x, axis)
         stop[pamp == minpeak] = True # Min amplitude reached. stop
-        acc, mask  = accept(llim, ulim, minwidth, stop, ipeak, peakLocs, numDims, axis)
+        acc, mask  = acceptPeaks(llim, ulim, minwidth, stop, ipeak, peakLocs, numDims, axis)
         
         # Append to outputs
         peakLocs[mask]   = ploc[acc]
@@ -243,16 +243,6 @@ def findPeaks(
         numRejected[~acc] += 1
         numRejected[acc]  = 0
         stop[numRejected  >= maxRejected] = True
-
-    # Get indices with all-zero peak locations (i.e. peaks not found)
-    sAxes      = tuple([ax for ax in range(x.ndim) if ax != axis])
-    nonZero    = np.where(~(peakLocs == 0).all(axis = sAxes))[0]
-
-    # Remove the corresponding sub-arrays
-    peakLocs   = np.take(peakLocs, nonZero, axis)
-    peakAmps   = np.take(peakAmps, nonZero, axis)
-    peakWidths = np.take(peakWidths, nonZero, axis)
-
 
     return peakLocs, peakAmps, peakWidths
 
