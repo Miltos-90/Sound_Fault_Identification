@@ -16,4 +16,4 @@ from . import envelopes
 from . import filters
 
 
-from .harmonic_model import getFundamentalFrequency
+from .harmonic_model import getFundamentalFrequencies

@@ -305,7 +305,7 @@ def removeSubharmonics(
     return frequencies, harmonicNums
 
 
-def getFundamentalFrequency(frequencies: np.array, harmonicNums: np.array, axis: int) -> np.array:
+def getFundamentalFrequencies(frequencies: np.array, harmonicNums: np.array, axis: int) -> np.array:
     """ Computes the fundamental frequency through an OLS fit of the peak frequencies found
         (dependent variable) to the peak frequencies x harmonic numbers (independent variable)
         Inputs: 
