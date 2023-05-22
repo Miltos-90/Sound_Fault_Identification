@@ -330,6 +330,33 @@ def getFundamentalFrequencies(frequencies: np.array, harmonicNums: np.array, axi
     return f
 
 
+def getAmplitudes(
+    frequencies: np.array, amplitudes: np.array, f: np.array, axis: int) -> np.array:
+    """ Extracts the FFT amplitudes associated with the frequencies requested.
+        Inputs:
+            frequencies: Frequency vector at which <amplitudes> is measured
+            amplitudes : Amplitudes matrix to be searched
+            f: Matrix of frequencies for which the amplitudes are needed
+            axis: Axis along which to search 
+        Outputs:
+            amps: Amplitudes at the fundamental frequencies
+    """
+
+    # Expand the dimensions of the frequency vector <frequencies>
+    dimCounter      = range(f.ndim)
+    addAxes         = tuple([a + 1 for a in dimCounter])
+    frequencyMtrx   = np.expand_dims(frequencies, axis = addAxes)
+
+    # Get indices of the frequencies closest to the fundamental frequenies
+    closestIx       = np.argmin( np.abs(frequencyMtrx - f), axis = 0)
+
+    # Get corresponding amplitudes
+    amps = np.take_along_axis(amplitudes, closestIx[None,...], axis = axis)[0,...]
+    amps[np.isnan(f)] = np.nan
+
+    return amps
+
+
 def sinusoidalHarmonicModel(frequencies: np.array, amplitudes: np.array, harmonics: int, axis: int):
     """ Extracts (complex) amplitudes and frequencies of the sinusoids that best approximate a signal, by 
         analyzing the signal's spectrum and identifying the frequencies and amplitued of its spectral peaks.
