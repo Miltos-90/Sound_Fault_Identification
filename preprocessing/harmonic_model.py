@@ -305,7 +305,8 @@ def removeSubharmonics(
     return frequencies, harmonicNums
 
 
-def getFundamentalFrequencies(frequencies: np.array, harmonicNums: np.array, axis: int) -> np.array:
+def getFundamentalFrequency(frequencies: np.array, harmonicNums: np.array, axis: int) -> np.array:
+    
     """ Computes the fundamental frequency through an OLS fit of the peak frequencies found
         (dependent variable) to the peak frequencies x harmonic numbers (independent variable)
         Inputs: 
@@ -330,7 +331,7 @@ def getFundamentalFrequencies(frequencies: np.array, harmonicNums: np.array, axi
     return f
 
 
-def getAmplitudes(
+def getAmplitude(
     frequencies: np.array, amplitudes: np.array, f: np.array, axis: int) -> np.array:
     """ Extracts the FFT amplitudes associated with the frequencies requested.
         Inputs:
@@ -352,7 +353,11 @@ def getAmplitudes(
 
     # Get corresponding amplitudes
     amps = np.take_along_axis(amplitudes, closestIx[None,...], axis = axis)[0,...]
-    amps[np.isnan(f)] = np.nan
+
+    # Do not extrapolate
+    amps[np.isnan(f)]           = np.nan
+    amps[f > frequencies.max()] = np.nan
+    amps[f < frequencies.min()] = np.nan
 
     return amps
 
