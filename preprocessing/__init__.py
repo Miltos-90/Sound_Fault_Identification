@@ -8,12 +8,9 @@ URL: http://recherche.ircam.fr/anasyn/peeters/ARTICLES/Peeters_2003_cuidadoaudio
 (accessed 11/05/2023)
 """
 
-
 from .array import chunk, detrend
 from . import spectra
 from .spectra import todb
 from . import envelopes
 from . import filters
-
-
-from .harmonic_model import getFundamentalFrequency, getAmplitude
+from .harmonic_model import harmonicModel

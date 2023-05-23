@@ -175,7 +175,7 @@ def acceptPeaks(
 
 def findPeaks(
     x: np.array, npeaks: int, minwidth: int, maxwidth: int, minpeak: float, 
-    axis: int, maxRejected: int = 10) -> Tuple[np.array, np.array, np.array]:
+    maxRejected: int, axis: int) -> Tuple[np.array, np.array, np.array]:
     """ Finds up to <npeaks> interpolated peaks in the matrix <x> along axis <axis>. 
         Inputs:
             x           : Matrix from which peaks will be extracted
@@ -362,41 +362,75 @@ def getAmplitude(
     return amps
 
 
-def sinusoidalHarmonicModel(frequencies: np.array, amplitudes: np.array, harmonics: int, axis: int):
-    """ Extracts (complex) amplitudes and frequencies of the sinusoids that best approximate a signal, by 
-        analyzing the signal's spectrum and identifying the frequencies and amplitued of its spectral peaks.
+def harmonicModel(frequencies: np.array, amplitudes: np.array, frameSize: int, axis: int,
+    numPeaks: int = 12, numHarmonics: int = 6, minPadFactor: int = 5, subHarmonicLimit: float = 0.75, 
+    maxRejected: int = 15, minRelativeAmplitude: int = -60):
+    """ 
+        Extracts amplitudes and frequencies of the sinusoids that best approximate a signal, by 
+        estimating its fundamental frequency from the spectral peaks (i.e. pitch detection) using an 
+        approximate maximum likelihood detection algorithm implemented in two steps [1]:
+            1. Find the peak of the histogram of the peak-frequency-differences in order to find the 
+            most common harmonic spacing.
+            2. Refine the above estimate using linear (OLS) regression
+            3. Evaluate the slope of step 2, which gives the frequency estimate.
+        
         Inputs: 
-            frequencies: Vector of frequencies for the corresponding FFT amplitudes
-            amplitudes : FFT amplitudes [Num. frames x Num. frequencies x Num. channels]
-            harmonics  : Number of harmonic frequencies and amplitudes to extract
-            axis       : Axis along which to search for the harmonic amplitudes and frequencies
+            frequencies [Hz]:
+                Vector of frequencies for the corresponding FFT amplitudes [Num. frequencies]
+            amplitudes [dBFS]: 
+                FFT amplitudes [Num. frequencies x DIMS]. DIMS can be an arbitrary number of dimensions
+            numPeaks: 
+                Number of peaks to be extracted. A smaller number of peaks will be extracted if
+                less are present in the spectra.
+            numHarmonics: Number of harmonic frequencies (multitudes of the fundamental frequency) 
+                and corresponding amplitudes to extract
+            minPadFactor: 
+                Minimum zero-padding factor to be used for the peak extraction 
+                approximately equal to 5 should be used for the generalized Blackman family of windows
+            subHarmonicLimit: Maximum harmonic number below which extracted peaks are rejected
+                (used for the removal of the DC term, subharmonics, etc.)
+            maxRejected: Num. of consecutive peak rejections before the algorithm 
+                stops searching for peaks. It is used in case the number 
+                of peaks requested <numPeaks> is higher than the number of 
+                peaks that actually exist in the signal above the minimum value <minlevel>
+            minRelativeAmplitude:
+                Lowest relative partial amplitude a peak should have to be accepted
+                -40 [dBFS] should be used with the Hamming window family
+                -60 [dBFS] should be with Blackman window family
+            frameSize: 
+                Size of the frames used for the generation of the spectrum
+            axis:
+                Axis along which to search for the harmonic amplitudes and frequencies
+        
         Outputs:
-            harmonicFreqs: Harmonic frequencies [Num. frames x harmonics x Num. channels]
-            harmonicAmps:  Harmonic amplitudes  [Num. frames x harmonics x Num. channels]
+            harmonicFreqs: Harmonic frequencies [DIMS, NumHarmonics]
+            harmonicAmps:  Harmonic amplitudes  [DIMS, NumHarmonics]
+        
+        References: 
+        [1] https://www.dsprelated.com/freebooks/sasp/Fundamental_Frequency_Estimation_Spectral.html
     """
 
-    # Compute the fundamental frequency
-    peakIndex   = np.argmax(np.abs(amplitudes), axis = axis)
-    fundamental = frequencies[peakIndex]
+    # Compute required constants
+    nfft     = 2 ** int( np.ceil( np.log2(frameSize * minPadFactor) ) )
+    minAmp   = np.max(amplitudes) + minRelativeAmplitude
+    minWidth = minPadFactor * nfft / frameSize
+    maxWidth = minWidth * 2
 
-    # Compute sinusoidal harmonic frequencies and corresponding amplitudes
-    frames        = amplitudes.shape[0]
-    channels      = amplitudes.shape[2]
-    shape         = (frames, harmonics, channels)
-    harmonicFreqs = np.empty(shape = shape, dtype = frequencies.dtype)
-    harmonicAmps  = np.empty(shape = shape, dtype = amplitudes.dtype)
-    freqExpanded  = np.expand_dims(frequencies, axis = tuple(range(1, amplitudes.ndim)))
+    # Extract and sort peaks in the spectrum
+    locs, amps, widths = findPeaks(
+        amplitudes.copy(), numPeaks, minWidth, maxWidth, minAmp, maxRejected, axis)
+    ix = sorter(locs, axis)
+    locs, amps, widths = locs[ix], amps[ix], widths[ix]
 
-    for hNo in range(1, harmonics + 1):
+    # Compute fundamental frequency
+    freqs, harmonics = removeSubharmonics(frequencies[locs], locs, subHarmonicLimit, axis)
+    fundamentalFreq  = getFundamentalFrequency(freqs, harmonics, axis)
 
-        # Get the spectrum frequency that is closest to the current harmonic frequency
-        diff = freqExpanded - fundamental * hNo
-        idx  = np.abs(diff).argmin(axis = 0)
-        harmonicFreqs[:, hNo-1, :] = frequencies[idx]
+    # Extract harmonics
+    hFreqs = np.stack([fundamentalFreq * (i + 1) for i in range(numHarmonics)], axis = -1)
+    hAmps  = np.stack(
+        [getAmplitude(frequencies, amplitudes, fundamentalFreq * (i + 1), axis = axis)  
+            for i in range(numHarmonics)],
+        axis = -1)
 
-        # get the corresponding amplitude
-        idx     = np.expand_dims(idx, axis = axis)
-        curAmps = np.take_along_axis(amplitudes, idx, axis = axis)
-        harmonicAmps[:, hNo-1, :] = np.squeeze(curAmps, axis = axis)
-        
-    return harmonicFreqs, harmonicAmps
+    return hFreqs, hAmps
