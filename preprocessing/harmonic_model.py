@@ -97,15 +97,15 @@ def getPeakEnd(peakLoc: np.array, peakAmp: np.array, tol: np.array, x: np.array,
     n          = x.shape[axis]
     upLim      = np.minimum(n * np.ones_like(peakLoc), peakLoc + 1)
     cAmp, dmin = peakAmp.copy(), peakAmp.copy()
-    follow     = (upLim < n) & (np.take_along_axis(x, upLim, axis) <= dmin + tol)
+    follow     = (upLim < n-1) & (np.take_along_axis(x, np.minimum(n-1, upLim), axis) <= dmin + tol)
 
     while np.any(follow):
 
-        cAmp[follow]   = np.take_along_axis(x, upLim, axis)[follow] 
+        cAmp[follow] = np.take_along_axis(x, np.minimum(n-1, upLim), axis)[follow] 
         upLim[follow] += 1
         c       = (cAmp < dmin) & (follow)
         dmin[c] = cAmp[c]
-        follow  = (upLim < n) & (np.take_along_axis(x, upLim, axis) <= dmin + tol)
+        follow  = (upLim < n-1) & (np.take_along_axis(x, np.minimum(n-1, upLim), axis) <= dmin + tol)
 
     upLim -= 1
 
@@ -130,14 +130,14 @@ def getPeakStart(peakLoc: np.array, peakAmp: np.array, tol: np.array, x: np.arra
     lowLim = np.maximum(1, peakLoc-1)
     cAmp   = peakAmp.copy()
     dmin   = peakAmp.copy()
-    follow = (lowLim > 1) & (np.take_along_axis(x, lowLim, axis) <= dmin + tol)
+    follow = (lowLim > 1) & (np.take_along_axis(x, np.maximum(1, lowLim), axis) <= dmin + tol)
 
     while np.any(follow):
-        cAmp[follow] = np.take_along_axis(x, lowLim, axis)[follow]
+        cAmp[follow] = np.take_along_axis(x, np.maximum(1, lowLim), axis)[follow]
         lowLim[follow] -= 1
         c = (cAmp < dmin) & follow
         dmin[c] = cAmp[c]
-        follow  = (lowLim > 1) & (np.take_along_axis(x, lowLim, axis) <= dmin + tol)
+        follow  = (lowLim > 1) & (np.take_along_axis(x, np.maximum(1, lowLim), axis) <= dmin + tol)
 
     lowLim += 1
 
@@ -230,28 +230,6 @@ def findPeaks(
     return peakLocs, peakAmps, peakWidths
 
 
-def sorter(x: np.array, axis: int) -> tuple:
-    """ Sorts a matrix in ascending order along an axis.
-        Inputs:
-            x   : Matrix to be sorted
-            axis: Axis along which to sort 9ascending order)
-        Outputs:
-            ix  : Tuple of sorted indices
-    """
-
-    sortedIndices = np.argsort(x, axis)
-    staticShape   = [s for i, s in enumerate(x.shape) if i != axis]
-    staticIndices = np.indices(staticShape)
-
-    ix = []
-    for dim in range(x.ndim):
-        if   dim == axis: ix.append(sortedIndices)
-        elif dim > axis:  ix.append(staticIndices[dim - 1])
-        elif dim < axis:  ix.append(staticIndices[dim])
-
-    return tuple(ix)
-
-
 def medianFrequencyDiff(x: np.array, axis: int) -> np.array:
     """ Computes the median of the 1st-order difference of a matrix along a given axis.
         Inputs:
@@ -279,7 +257,7 @@ def medianFrequencyDiff(x: np.array, axis: int) -> np.array:
     medianDiff = np.asarray(medianDiff)
     medianDiff[singlePeak] = mean_[singlePeak]
 
-    return medianDiff
+    return np.expand_dims(medianDiff, axis = axis)
 
 
 def removeSubharmonics(
@@ -317,53 +295,69 @@ def getFundamentalFrequency(frequencies: np.array, harmonicNums: np.array, axis:
             f           : Matrix of fundamental frequencies
     """
 
-    n  = (frequencies > 0).sum(axis = axis)             # Num. points
-    x  = harmonicNums.sum(axis = axis)                  # i.e.: x
-    y  = frequencies.sum(axis = axis)                   # i.e.: y
-    xy = (harmonicNums * frequencies).sum(axis = axis)  # i.e.: x * y
-    xx = (harmonicNums * harmonicNums).sum(axis = axis) # i.e.: x * x
-    f  = (n * xy - x * y) / (n * xx - x*x) # Fitted slope = fundamental frequency
+    n  = (frequencies > 0).sum(axis = axis, keepdims = True)             # Num. points (i.e. peaks)
+    x  = harmonicNums.sum(axis = axis, keepdims = True)                  # i.e.: x
+    y  = frequencies.sum( axis = axis, keepdims = True)                  # i.e.: y
+    xy = (harmonicNums * frequencies).sum( axis = axis, keepdims = True) # i.e.: x * y
+    xx = (harmonicNums * harmonicNums).sum(axis = axis, keepdims = True) # i.e.: x * x
+    f  = (n * xy - x * y) / (n * xx - x * x)    # Fitted slope = fundamental frequency
 
-    # If one peak was found, it corresponds to the fundamental frequency
-    f, y = np.asarray(f), np.asarray(y)
+    # If a single peak was found, it corresponds to the fundamental frequency:
     f[n == 1] = y[n == 1]  
 
     return f
 
 
-def getAmplitude(
-    frequencies: np.array, amplitudes: np.array, f: np.array, axis: int) -> np.array:
-    """ Extracts the FFT amplitudes associated with the frequencies requested.
+def getHarmonics(
+    fundamentalFrequency: np.array, frequencies: np.array, amplitudes: np.array, 
+    numHarmonics: int, axis: int) -> Tuple[np.array, np.array]:
+    """ Extracts the harmonics frequencies and assosiated FFT amplitudes.
         Inputs:
-            frequencies: Frequency vector at which <amplitudes> is measured
-            amplitudes : Amplitudes matrix to be searched
-            f: Matrix of frequencies for which the amplitudes are needed
-            axis: Axis along which to search 
+            fundamentalFrequency: Matrix with the fundamental frequencies of the signals
+            frequencies:  Frequency vector at which <amplitudes> are measured
+            amplitudes :  Amplitudes matrix to be searched
+            numHarmonics: Number of harmonic frequencies (multitudes of the 
+                fundamental frequency) and corresponding amplitudes to extract
+            axis: Axis along which to search for the harmonics
         Outputs:
-            amps: Amplitudes at the fundamental frequencies
+            harmonicFreqs: Multitudes of the fundamental frequency
+            harmonicAmps:  Amplitudes at the fundamental frequencies
     """
 
-    # Expand the dimensions of the frequency vector <frequencies>
-    dimCounter      = range(f.ndim)
-    addAxes         = tuple([a + 1 for a in dimCounter])
-    frequencyMtrx   = np.expand_dims(frequencies, axis = addAxes)
+    harmonicFreqs, harmonicAmps = [], []
 
-    # Get indices of the frequencies closest to the fundamental frequenies
-    closestIx       = np.argmin( np.abs(frequencyMtrx - f), axis = 0)
+    for i in range(numHarmonics):
 
-    # Get corresponding amplitudes
-    amps = np.take_along_axis(amplitudes, closestIx[None,...], axis = axis)[0,...]
+        # Get current harmonic frequency
+        f = fundamentalFrequency * (i + 1)
 
-    # Do not extrapolate
-    amps[np.isnan(f)]           = np.nan
-    amps[f > frequencies.max()] = np.nan
-    amps[f < frequencies.min()] = np.nan
+        # Expand the dimensions of the frequency vector <frequencies>
+        dimCounter      = range(f.ndim)
+        addAxes         = tuple([a + 1 for a in dimCounter])
+        frequencyMtrx   = np.expand_dims(frequencies, axis = addAxes)
 
-    return amps
+        # Get indices of the frequencies closest to the fundamental frequenies
+        closestIx = np.argmin( np.abs(frequencyMtrx - f), axis = 0)
+        #closestIx = np.expand_dims(closestIx, axis = axis)
+
+        # Get corresponding amplitudes
+        amps = np.take_along_axis(amplitudes, closestIx, axis = axis)
+
+        # Do not extrapolate
+        mask = np.isnan(f) | ( f > frequencies.max() ) | ( f < frequencies.min() )
+        np.putmask(amps, mask, np.nan)
+
+        harmonicFreqs.append(f)
+        harmonicAmps.append(amps)
+
+    harmonicFreqs = np.concatenate(harmonicFreqs, axis = axis)
+    harmonicAmps  = np.concatenate(harmonicAmps, axis = axis)
+
+    return harmonicFreqs, harmonicAmps
 
 
 def harmonicModel(frequencies: np.array, amplitudes: np.array, frameSize: int, axis: int,
-    numPeaks: int = 12, numHarmonics: int = 6, minPadFactor: int = 5, subHarmonicLimit: float = 0.75, 
+    numPeaks: int = 12, numHarmonics: int = 10, minPadFactor: int = 5, subHarmonicLimit: float = 0.75, 
     maxRejected: int = 15, minRelativeAmplitude: int = -60):
     """ 
         Extracts amplitudes and frequencies of the sinusoids that best approximate a signal, by 
@@ -378,7 +372,9 @@ def harmonicModel(frequencies: np.array, amplitudes: np.array, frameSize: int, a
             frequencies [Hz]:
                 Vector of frequencies for the corresponding FFT amplitudes [Num. frequencies]
             amplitudes [dBFS]: 
-                FFT amplitudes [Num. frequencies x DIMS]. DIMS can be an arbitrary number of dimensions
+                FFT amplitudes [DIMS]. 
+                NOTE: DIMS can be any arbitrary number of dimensions, so long as the input axis <axis>
+                      contains <Num. frequencies> elements.
             numPeaks: 
                 Number of peaks to be extracted. A smaller number of peaks will be extracted if
                 less are present in the spectra.
@@ -403,8 +399,12 @@ def harmonicModel(frequencies: np.array, amplitudes: np.array, frameSize: int, a
                 Axis along which to search for the harmonic amplitudes and frequencies
         
         Outputs:
-            harmonicFreqs: Harmonic frequencies [DIMS, NumHarmonics]
-            harmonicAmps:  Harmonic amplitudes  [DIMS, NumHarmonics]
+            harmonicFreqs: Harmonic frequencies (see note for dimensions)
+            harmonicAmps:  Harmonic amplitudes  (see note for dimensions)
+            
+            NOTE: Dimensions are exactly the same as the dimensions of the input <amplitudes> matrix, with the
+                  excpetion of the axis <axis>. The latter will contain <numHarmonics> elements instead of
+                  <Num. frequencies> elements.
         
         References: 
         [1] https://www.dsprelated.com/freebooks/sasp/Fundamental_Frequency_Estimation_Spectral.html
@@ -416,21 +416,18 @@ def harmonicModel(frequencies: np.array, amplitudes: np.array, frameSize: int, a
     minWidth = minPadFactor * nfft / frameSize
     maxWidth = minWidth * 2
 
-    # Extract and sort peaks in the spectrum
-    locs, amps, widths = findPeaks(
-        amplitudes.copy(), numPeaks, minWidth, maxWidth, minAmp, maxRejected, axis)
-    ix = sorter(locs, axis)
-    locs, amps, widths = locs[ix], amps[ix], widths[ix]
+    # Extract and sort peaks
+    locs, amps, widths = findPeaks(amplitudes.copy(), numPeaks, minWidth, maxWidth, minAmp, maxRejected, axis)
+    ix     = np.argsort(locs, axis)
+    locs   = np.take_along_axis(locs, ix, axis)
+    amps   = np.take_along_axis(amps, ix, axis)
+    widths = np.take_along_axis(widths, ix, axis)
 
     # Compute fundamental frequency
     freqs, harmonics = removeSubharmonics(frequencies[locs], locs, subHarmonicLimit, axis)
     fundamentalFreq  = getFundamentalFrequency(freqs, harmonics, axis)
 
     # Extract harmonics
-    hFreqs = np.stack([fundamentalFreq * (i + 1) for i in range(numHarmonics)], axis = -1)
-    hAmps  = np.stack(
-        [getAmplitude(frequencies, amplitudes, fundamentalFreq * (i + 1), axis = axis)  
-            for i in range(numHarmonics)],
-        axis = -1)
-
-    return hFreqs, hAmps
+    harmonicFreqs, harmonicAmps = getHarmonics(fundamentalFreq, frequencies, amplitudes, numHarmonics, axis)
+    
+    return harmonicFreqs, harmonicAmps
