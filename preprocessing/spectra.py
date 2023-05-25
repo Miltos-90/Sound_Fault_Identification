@@ -4,7 +4,7 @@ from scipy.fft import fft, fftfreq
 from typing import Tuple
 import numpy as np
 
-def _windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
+def windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
     """ Computes the amplitude and energy correction factors for a window signal according to [1]. 
         (agrees with the values reported in [2] for various windows.)
         Inputs: window signal vector
@@ -22,6 +22,7 @@ def _windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
     ecf = np.sqrt(n / np.sum(windowSignal ** 2)) # Energy Correction Factor (Power Spectral Density)
 
     return acf, ecf
+
 
 def fourier(signal: np.array, sampleFrequency: int, axis: int) -> Tuple[np.array, np.array]:
     """ 
@@ -49,7 +50,7 @@ def fourier(signal: np.array, sampleFrequency: int, axis: int) -> Tuple[np.array
     sigF  = fft(signal, axis = axis, norm = "ortho")
 
     # Apply window corrections
-    acf, _ = _windowCorrectionFactors(windowSig)
+    acf, _ = windowCorrectionFactors(windowSig)
     sigF *= acf
     
     # Cut-off at the highest frequency and ignre negative frequencies
@@ -60,6 +61,7 @@ def fourier(signal: np.array, sampleFrequency: int, axis: int) -> Tuple[np.array
 
     return freqs, sigF
 
+
 def psd(spectrum: np.array, sampleFrequency: int) -> np.array:
     """ Computes the power spectral density (PSD) from the FFT spectrum. 
         Inputs:
@@ -69,12 +71,13 @@ def psd(spectrum: np.array, sampleFrequency: int) -> np.array:
             amplitudes: PSD amplitudes
     """
 
-    _, ecf = _windowCorrectionFactors(hann(M = spectrum.shape[0]))
+    _, ecf = windowCorrectionFactors(hann(M = spectrum.shape[0]))
     Sxx = spectrum * spectrum.conj() / sampleFrequency
 
     return Sxx.real * ecf
 
-def _makeOctave(band: float, limits: list = [20, 20000]):
+
+def makeOctave(band: float, limits: list = [20, 20000]):
     """ Generator of center and high/low frequency limists for octave/fractional-octave bands
         lying within a given frequency range.
         Inputs:
@@ -108,6 +111,7 @@ def _makeOctave(band: float, limits: list = [20, 20000]):
 
     return np.column_stack((fLow, fCenter, fHigh)) # Convert to matrix
 
+
 def _makeGainCurve(fVec: np.array, fCenter: int, bandwidth: int) -> np.array:
     """ Evaluates the gain-vs-efficiency curve of a 1/b-octave filter that meets the
         Class 0 tolerance requirements of IEC 61260.
@@ -119,6 +123,7 @@ def _makeGainCurve(fVec: np.array, fCenter: int, bandwidth: int) -> np.array:
             g: Filter's gain
     """
     return ( 1 + ( (fVec/fCenter - fCenter/fVec) * 1.507 * bandwidth ) ** 6 ) ** (-1/2)
+
 
 def octave(frequencies: np.array, amplitudes: np.array, bandwidthDesignator: int, axis: int) -> Tuple[np.array, np.array]:
     """ Computes a 1/b octave spectrum from the FFT amplitudes nand frequencies (i.e. the output of
@@ -136,7 +141,7 @@ def octave(frequencies: np.array, amplitudes: np.array, bandwidthDesignator: int
     # Get frequency bands for the given octave
     octaveBand      = 1/bandwidthDesignator
     frequencyLimits = [20, frequencies.max()]
-    frequencyRange  = _makeOctave(octaveBand, frequencyLimits)
+    frequencyRange  = makeOctave(octaveBand, frequencyLimits)
 
     # Matrix with PSD levels for each octave band
     # Matrix shape: Along the axis on which the octave calculation will be 
@@ -180,6 +185,7 @@ def octave(frequencies: np.array, amplitudes: np.array, bandwidthDesignator: int
     centerFrequencies = frequencyRange[:, 1]
 
     return centerFrequencies, noiseLevels
+
 
 def todb(array: np.array, reference = 1.0):
     """ Convert an array to decibels [dB], relative to the specified reference level.

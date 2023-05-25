@@ -14,3 +14,4 @@ from .spectra import todb
 from . import envelopes
 from . import filters
 from .harmonic_model import harmonicModel
+from .mel import melFilterbank
