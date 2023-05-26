@@ -29,7 +29,7 @@ def mel2hertz(mel: np.array) -> np.array:
 def melFilterbank(
     numDFTbins: int, numFilters: int, sampleFrequency: int, normalize: bool = True) -> Tuple[np.array, np.array]:
     """
-    Compute the filters in a Mel filterbank and return the corresponding
+    Computes the filters in a Mel filterbank and return the corresponding
     transformation matrix. This implementation is based on code in the LibROSA 
     package [1] and is taken from the numpy-ml github repository [2]
     
@@ -40,9 +40,9 @@ def melFilterbank(
         normalize      : Whether to scale the Mel filter weights by their area in Mel space
 
     Outputs:
-        fbank : The mel-filterbank transformation matrix. Columns correspond to filters,
-                rows to DFT bins. Dimensions: [numDFTbins // 2 + 1, numFilters]
-        hzBins: Frequency centers [Hz] for the FFT bins. Dimensions: [numDFTbins // 2 + 1]
+        fbank  : The mel-filterbank transformation matrix. Columns correspond to filters,
+                 rows to DFT bins. Dimensions: [numDFTbins // 2 + 1, numFilters]
+        melBins: Mel scale centers. Dimensions: [numFilters]
     
     References: 
     [1] McFee et al. (2015). "librosa: Audio and music signal analysis in
