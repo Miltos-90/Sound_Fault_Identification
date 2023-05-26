@@ -174,7 +174,7 @@ def acceptPeaks(
 
 
 def findPeaks(
-    x: np.array, npeaks: int, minwidth: int, maxwidth: int, minpeak: float, 
+    x: np.array, npeaks: int, minwidth: int, minpeak: float, 
     maxRejected: int, axis: int) -> Tuple[np.array, np.array, np.array]:
     """ Finds up to <npeaks> interpolated peaks in the matrix <x> along axis <axis>. 
         Inputs:
@@ -356,9 +356,9 @@ def getHarmonics(
     return harmonicFreqs, harmonicAmps
 
 
-def harmonicModel(frequencies: np.array, amplitudes: np.array, frameSize: int, axis: int,
-    numPeaks: int = 12, numHarmonics: int = 10, minPadFactor: int = 5, subHarmonicLimit: float = 0.75, 
-    maxRejected: int = 15, minRelativeAmplitude: int = -60):
+def harmonicModel(frequencies: np.array, amplitudes: np.array, axis: int, numPeaks: int = 30, 
+    numHarmonics: int = 10, minPadFactor: int = 1, subHarmonicLimit: float = 0.75, 
+    maxRejected: int = 50, minRelativeAmplitude: int = -60) -> Tuple[np.array, np.array]:
     """ 
         Extracts amplitudes and frequencies of the sinusoids that best approximate a signal, by 
         estimating its fundamental frequency from the spectral peaks (i.e. pitch detection) using an 
@@ -369,14 +369,11 @@ def harmonicModel(frequencies: np.array, amplitudes: np.array, frameSize: int, a
             3. Evaluate the slope of step 2, which gives the frequency estimate.
         
         Inputs: 
-            frequencies [Hz]:
-                Vector of frequencies for the corresponding FFT amplitudes [Num. frequencies]
-            amplitudes [dBFS]: 
-                FFT amplitudes [DIMS]. 
+            frequencies [Hz]: Vector of frequencies for the corresponding FFT amplitudes [Num. frequencies]
+            amplitudes [dBFS]: FFT amplitudes [DIMS]. 
                 NOTE: DIMS can be any arbitrary number of dimensions, so long as the input axis <axis>
                       contains <Num. frequencies> elements.
-            numPeaks: 
-                Number of peaks to be extracted. A smaller number of peaks will be extracted if
+            numPeaks: Number of peaks to be extracted. A smaller number of peaks will be extracted if
                 less are present in the spectra.
             numHarmonics: Number of harmonic frequencies (multitudes of the fundamental frequency) 
                 and corresponding amplitudes to extract
@@ -393,31 +390,28 @@ def harmonicModel(frequencies: np.array, amplitudes: np.array, frameSize: int, a
                 Lowest relative partial amplitude a peak should have to be accepted
                 -40 [dBFS] should be used with the Hamming window family
                 -60 [dBFS] should be with Blackman window family
-            frameSize: 
-                Size of the frames used for the generation of the spectrum
             axis:
                 Axis along which to search for the harmonic amplitudes and frequencies
         
         Outputs:
-            harmonicFreqs: Harmonic frequencies (see note for dimensions)
-            harmonicAmps:  Harmonic amplitudes  (see note for dimensions)
-            
-            NOTE: Dimensions are exactly the same as the dimensions of the input <amplitudes> matrix, with the
-                  excpetion of the axis <axis>. The latter will contain <numHarmonics> elements instead of
-                  <Num. frequencies> elements.
+            harmonicFreqs: Harmonic frequencies
+            harmonicAmps:  Harmonic amplitudes.
+                Dimensions are exactly the same as the dimensions of the input <amplitudes> matrix, with the
+                excpetion of the axis <axis>. The latter will contain <numHarmonics> elements instead of
+                <Num. frequencies> elements.
         
         References: 
         [1] https://www.dsprelated.com/freebooks/sasp/Fundamental_Frequency_Estimation_Spectral.html
     """
 
     # Compute required constants
-    nfft     = 2 ** int( np.ceil( np.log2(frameSize * minPadFactor) ) )
-    minAmp   = np.max(amplitudes) + minRelativeAmplitude
-    minWidth = minPadFactor * nfft / frameSize
-    maxWidth = minWidth * 2
+    frameSize = 2 * frequencies.shape[0]
+    nfft      = 2 ** int( np.ceil( np.log2(frameSize * minPadFactor) ) )
+    minAmp    = np.max(amplitudes) + minRelativeAmplitude
+    minWidth  = minPadFactor * nfft / frameSize
 
     # Extract and sort peaks
-    locs, amps, widths = findPeaks(amplitudes.copy(), numPeaks, minWidth, maxWidth, minAmp, maxRejected, axis)
+    locs, amps, widths = findPeaks(amplitudes.copy(), numPeaks, minWidth, minAmp, maxRejected, axis)
     ix     = np.argsort(locs, axis)
     locs   = np.take_along_axis(locs, ix, axis)
     amps   = np.take_along_axis(amps, ix, axis)

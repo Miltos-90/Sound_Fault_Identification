@@ -66,7 +66,7 @@ def midEar(sampleFrequency: int, plot: bool = False, **kwargs) -> Tuple[np.array
     def transform(data: np.array, fs: int) -> Tuple[np.array, np.array]:
         """ Processes the data according to the sampling frequency <fs> [Hz] and transforms it 
             in a suitable format for the scipy.signal.firwin2 function.
-            """
+        """
 
         fs2 = fs / 2
         if fs <= 20000:
