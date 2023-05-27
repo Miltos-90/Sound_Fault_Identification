@@ -1,9 +1,9 @@
 """ Collection of filtering-related functions. """
 
 from scipy.signal import hilbert, firwin2, freqz
+from scipy.fft    import fft
+from typing       import Tuple
 import matplotlib.pyplot as plt
-from scipy.fft import fft
-from typing import Tuple
 import numpy as np
 
 

@@ -1,6 +1,5 @@
 """ Collection of function to manipulate the raw audio signals prior to further preprocessing. """
 
-
 import numpy as np
 
 def pad(x: np.array, padValue, padSize:int, padType: str, axis: int) -> np.array:

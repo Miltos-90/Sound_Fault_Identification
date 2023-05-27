@@ -1,7 +1,7 @@
 """ Implementation of the sinusoidal harmonic model """
 
 from scipy.signal.windows import hann
-from typing import Tuple
+from typing  import Tuple
 import numpy as np
 
 def quadraticInterpolation(yl: np.array, yc: np.array, yr: np.array
