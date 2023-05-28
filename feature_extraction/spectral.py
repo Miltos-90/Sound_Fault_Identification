@@ -26,9 +26,9 @@ def differencingAlongAxis(x: np.array, axis: int) -> np.array:
 def expandDimensions(arr: np.array, numDims: int, axis: int):
     """ Expands the dimensions of an array apart from a given axis.
         Inputs:
-            arr     : Array whose dimensions will be expanded
-            numDims : Final number of dimensions the array will have
-            axis    : Axis to exclude from the expansion
+            arr    : Array whose dimensions will be expanded
+            numDims: Final number of dimensions the array will have
+            axis   : Axis to exclude from the expansion
         Outputs:
             Expanded array
     """
@@ -36,8 +36,7 @@ def expandDimensions(arr: np.array, numDims: int, axis: int):
     ax = [a for a in range(numDims) if a != axis]
     return np.expand_dims(arr, ax)
 
-
-def matchDimensions(
+def alignDimensions(
     arr1: np.array, arr2: np.array, axis: int) -> Tuple[np.array, np.array]:
     """ Matches the number of dimensions of two arrays, excluding a specific
         axis.
@@ -53,13 +52,17 @@ def matchDimensions(
 
     return arr1, arr2
 
-
 def normalizeSpectrum(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array:
     """ Normalizes the amplitudes of a spectrum. 
         Inputs:
-            frequencies : Frequency vector of the sampled amplitudes
-            amplitudes  : Spectrum amplitudes
+            frequencies : Matrix containing the frequencies corresponding to the spectral amplitudes
+            amplitudes  : Matrix containing the spectral amplitudes
             axis        : Axis along which to normalize
+            NOTE: frequencies and amplitudes are assumed to have the same number of dimensions. Furthermore
+                  along axis <axis> the matrices should have the same number of elements. For instance,
+                  valid dimensions could be the following:
+                    amplitudes: [100, 2000, 100], frequencies[1, 2000, 1] for axis = 1,
+                    amplitudes: [100, 100, 2000], frequencies[1, 1, 2000] for axis = 2, etc.
         Outputs:
             Normalized amplitudes. Dimensions are the same as the input amplitudes
     """
@@ -68,7 +71,6 @@ def normalizeSpectrum(frequencies: np.array, amplitudes: np.array, axis: int) ->
 
     return amplitudes / np.sum(amplitudes * df, axis = axis, keepdims = True)
 
-
 def getMoments(x: np.array, y: np.array, moments: list, axis: int) -> np.array:
     """ Evaluates statistical moments of a matrix along an axis.
         Inputs:
@@ -76,6 +78,11 @@ def getMoments(x: np.array, y: np.array, moments: list, axis: int) -> np.array:
             y      : Ordinate vector or matrix (will be broadcasted according to shape of x).
             moments: Moments to evaluate, e.g. [1,2,4] for the evaluation of the first, second and fourth moment
             axis   : Axis along which these moments will be evaluated
+            NOTE: x and y are assumed to have the same number of dimensions. Furthermore along axis <axis> 
+                  the matrices should have the same number of elements. For instance,
+                  valid dimensions could be the following:
+                    y: [100, 2000, 100], x[1, 2000, 1] for axis = 1,
+                    y: [100, 100, 2000], x[1, 1, 2000] for axis = 2, etc.
         Outputs: 
             Matrix of computed moments. Dimensions: x.ndims + 1. Last axes denotes the moments in ascending order.
     """
@@ -92,16 +99,20 @@ def getMoments(x: np.array, y: np.array, moments: list, axis: int) -> np.array:
 
     return out
 
-
 def shapeDescriptors(
     frequencies: np.array, amplitudes: np.array, axis: int, normalize: bool = True
     ) -> Tuple[np.array, np.array, np.array, np.array]:
     """ Computes several descriptors of the spectral shape.
         Inputs:
-            frequencies: Frequency vector
+            frequencies: Matrix containing the frequencies corresponding to the spectral amplitudes
             amplitudes : Matrix containing the spectral amplitudes
             axis       : Axis along which to compute the spectral descriptors
             normalize  : Boolean indicating if the spectrum should be normalized.
+            NOTE: frequencies and amplitudes are assumed to have the same number of dimensions. Furthermore
+                  along axis <axis> the matrices should have the same number of elements. For instance,
+                  valid dimensions could be the following:
+                    amplitudes: [100, 2000, 100], frequencies[1, 2000, 1] for axis = 1,
+                    amplitudes: [100, 100, 2000], frequencies[1, 1, 2000] for axis = 2, etc.
         Outputs:
             Centroid  : The barycenter of the spectrum
             Spread    : Spread of the spectrum around the mean value
@@ -123,7 +134,6 @@ def shapeDescriptors(
 
     return centroid, spread, skewness, kurtosis
 
-
 def spectralSlope(x: np.array, y: np.array, axis: int) -> np.array:
     
     """ Evaluates the slope of a linear regression model on the given data in a vectorized manner.
@@ -131,6 +141,11 @@ def spectralSlope(x: np.array, y: np.array, axis: int) -> np.array:
             x    : Matrix of dependent variables (arbitrary dimensions)
             y    : Matrix of independent variables of (dimensions same as x)
             axis : Axis along which to perform computations
+            NOTE: x and y are assumed to have the same number of dimensions. Furthermore along axis 
+                  <axis> the matrices should have the same number of elements. For instance,
+                  valid dimensions could be the following:
+                    amplitudes: [100, 2000, 100], frequencies[1, 2000, 1] for axis = 1,
+                    amplitudes: [100, 100, 2000], frequencies[1, 1, 2000] for axis = 2, etc.
         Outputs:
             s : slope of linear model
     """
@@ -147,14 +162,18 @@ def spectralSlope(x: np.array, y: np.array, axis: int) -> np.array:
 
     return s
 
-
-def spectralDecrease(x: np.array, y: np.array, axis: int) -> np.array:
+def spectralDecrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array:
     """ Computes the gradual decrease in spectral energy as the frequency 
         increases in the frequency domain.
         Inputs: 
-            x   : Matrix of dependent variables (arbitrary dimensions)
-            y   : Matrix of independent variables of (dimensions same as x)
-            axis: Axis along which to perform computations
+            frequencies: Frequency vector
+            amplitudes : Matrix containing the spectral amplitudes
+            axis       : Axis along which to perform computations
+            NOTE: frequencies and amplitudes are assumed to have the same number of dimensions. Furthermore
+                  along axis <axis> the matrices should have the same number of elements. For instance,
+                  valid dimensions could be the following:
+                    amplitudes: [100, 2000, 100], frequencies[1, 2000, 1] for axis = 1,
+                    amplitudes: [100, 100, 2000], frequencies[1, 1, 2000] for axis = 2, etc.
         Outputs:
             decrease: slope of linear model
     """
@@ -164,3 +183,36 @@ def spectralDecrease(x: np.array, y: np.array, axis: int) -> np.array:
     decrease = np.sum(dAmp / dFreq, axis = 1)
 
     return decrease
+
+def rolloffFrequency(
+    frequencies: np.array, amplitudes: np.array, axis: int, threshold: float = 0.95
+    ) -> np.array:
+    """ Computes the spectral roll-off point, i.e. the frequency so that 95% of the
+        signal energy is contained below this frequency.
+        Inputs:
+            frequencies: Frequency vector
+            amplitudes : Matrix containing the spectral amplitudes
+            axis       : Axis along which to perform computations
+            threshold  : Cut-off energy content of the signal
+            NOTE: frequencies and amplitudes are assumed to have the same number of dimensions. Furthermore
+                  along axis <axis> the matrices should have the same number of elements. For instance,
+                  valid dimensions could be the following:
+                    amplitudes: [100, 2000, 100], frequencies[1, 2000, 1] for axis = 1,
+                    amplitudes: [100, 100, 2000], frequencies[1, 1, 2000] for axis = 2, etc.
+        Outputs:
+            Roll-off frequencies matrix. Output dimensions are the same as the amplitudes input
+            except from axis <axis> which contains a single element, the roll-off frequency
+    """
+
+    # Compute the normalized cumulative sum of the power amplitudes
+    ampsCumsum = np.cumsum(amplitudes, axis = axis)
+    ampsCumsum /= ampsCumsum.max(axis = axis, keepdims = True)
+
+    # Find the index of the amplitude closest to the threshold value
+    diffs = np.abs(ampsCumsum - threshold)
+    ix    = np.argmin(diffs, axis = 1, keepdims = True)
+
+    # Get roll-off frequency
+    rolloffFrequency = np.take_along_axis(frequencies, ix, axis = axis)
+
+    return rolloffFrequency
