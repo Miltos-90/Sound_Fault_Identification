@@ -15,7 +15,7 @@ def rms(x: np.array, axis: int) -> np.array:
 
 
 
-# BELOW NOT USED AT ALL
+# BELOW NOT USED YET
 
 def skewness(signal: np.array, axis: int):
     """ Evaluates the skewness of a signal along the given axis. """

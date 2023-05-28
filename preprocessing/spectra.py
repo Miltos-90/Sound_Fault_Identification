@@ -195,4 +195,6 @@ def todb(array: np.array, reference = 1.0):
         Outputs: 
             The array translated to [dB]
     """
-    return 20 * np.log10(np.abs(array) / reference)
+
+    if np.iscomplexobj(array): array = np.abs(array)
+    return 10 * np.log10(array / reference)
