@@ -2,6 +2,10 @@ import numpy as np
 
 """ Time domain features """
 
+# BELOW NOT USED YET
+
+
+
 def rms(x: np.array, axis: int) -> np.array:
     """ Evaluates the root-mean-square (RMS) value of a signal along an axis. 
     Inputs:
@@ -15,7 +19,7 @@ def rms(x: np.array, axis: int) -> np.array:
 
 
 
-# BELOW NOT USED YET
+
 
 def skewness(signal: np.array, axis: int):
     """ Evaluates the skewness of a signal along the given axis. """
