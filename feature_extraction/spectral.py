@@ -1,27 +1,6 @@
 import numpy as np
 from typing import Tuple
-
-def differencingAlongAxis(x: np.array, axis: int) -> np.array:
-    """ Calculates the n-th discrete difference along a given axis and
-        inserts zeroes on the beginning of the axis to aling dimensions
-        with the input matrix.
-        Inputs:
-            x   : Input matrix
-            axis: The axis along which the difference is taken
-        Outputs:
-            1-st differences. The shape of the output is the same as x.
-    """
-    
-    newAx = [ax for ax in range(x.ndim) if ax != axis]
-    dx    = np.zeros_like(x)
-
-    np.put_along_axis(
-        arr     = dx, 
-        indices = np.expand_dims( np.arange(1, dx.shape[axis]), newAx), 
-        values  = np.diff(x, axis = axis), 
-        axis    = axis)
-
-    return dx
+from .helpers import take
 
 def expandDimensions(arr: np.array, numDims: int, axis: int):
     """ Expands the dimensions of an array apart from a given axis.
@@ -67,7 +46,7 @@ def normalizeSpectrum(frequencies: np.array, amplitudes: np.array, axis: int) ->
             Normalized amplitudes. Dimensions are the same as the input amplitudes
     """
     
-    df = differencingAlongAxis(frequencies, axis = axis)
+    df = np.diff(frequencies, axis = axis, prepend = 0.0)
 
     return amplitudes / np.sum(amplitudes * df, axis = axis, keepdims = True)
 
@@ -94,7 +73,7 @@ def getMoments(x: np.array, y: np.array, moments: list, axis: int) -> np.array:
     moments = np.expand_dims(moments, list(range(x.ndim)))
 
     # Moments vector. Dimensions: x.ndims + 1. Dimensionality of last axis: numMoments
-    dx  = differencingAlongAxis(x, axis = axis)
+    dx  = np.diff(x, axis = axis, prepend = 0.0)
     out = (y[..., np.newaxis] * dx[..., np.newaxis] * x[..., np.newaxis] ** moments).sum(axis = axis)
 
     return out
@@ -134,7 +113,7 @@ def shapeDescriptors(
 
     return centroid, spread, skewness, kurtosis
 
-def spectralSlope(x: np.array, y: np.array, axis: int) -> np.array:
+def slope(x: np.array, y: np.array, axis: int) -> np.array:
     
     """ Evaluates the slope of a linear regression model on the given data in a vectorized manner.
         Inputs: 
@@ -162,7 +141,7 @@ def spectralSlope(x: np.array, y: np.array, axis: int) -> np.array:
 
     return s
 
-def spectralDecrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array:
+def decrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array:
     """ Computes the gradual decrease in spectral energy as the frequency 
         increases in the frequency domain.
         Inputs: 
@@ -216,3 +195,25 @@ def rolloffFrequency(
     rolloffFrequency = np.take_along_axis(frequencies, ix, axis = axis)
 
     return rolloffFrequency
+
+def variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.array:
+    """ Computes the spectral variation (also known as spectral flux), i.e.e the amount of 
+        variation of the spectrum along time, as the normalized cross-correlation between two
+        successive amplitude spectra across time.
+        Inputs:
+            amplitudes  : Matrix containing the spectral amplitudes (arbitrary dimensions)
+            timeAxis    : Axis containing the spectra across the time dimension
+            spectralAxis: Axis containing the spectra across the frequency dimension
+        Outputs:
+            var: Spectral variation. Dimensions are similar to the input amplitudes, with
+                the spectralAxis removed, and the timeAxis containing 1 element less.
+    """
+
+    n     = amplitudes.shape[timeAxis]
+    amps0 = take(amplitudes, np.arange(0, n-1), timeAxis)
+    amps1 = take(amplitudes, np.arange(1, n), timeAxis)
+    num   = (amps0 * amps1).sum(spectralAxis)
+    denom = np.sqrt( (amps0 ** 2).sum(spectralAxis) * (amps1 ** 2).sum(spectralAxis) )
+    var   = 1 - num / denom
+
+    return var

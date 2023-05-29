@@ -2,9 +2,27 @@ import numpy as np
 
 """ Time domain features """
 
+
+def take(x: np.array, ind: np.array, axis: int) -> np.array:
+    """ Retrieves slices from a given axis of a numpy array. 
+        Inputs:
+            x   : n-dimensional matrix from which the slices will be retrieved
+            ind : Array of (integers) indices to be retrieved
+            axis: Axis of <x> from which the indices will be extracted
+
+        Outputs:
+            n-dimensional matrix containing only the indices <ind> along axis <axis>
+    """
+
+    ix = [slice(None)] * x.ndim
+    ix[axis] = ind
+    return x[tuple(ix)]
+
+
+
+
+
 # BELOW NOT USED YET
-
-
 
 def rms(x: np.array, axis: int) -> np.array:
     """ Evaluates the root-mean-square (RMS) value of a signal along an axis. 

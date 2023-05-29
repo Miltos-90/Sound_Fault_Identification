@@ -1,6 +1,7 @@
 """ This module contains all functions that extract the instantaneous temporal features of a sound signal. """
 
 import numpy as np
+from .helpers import take
 
 def makeEinsumNotation(numDims: int, axis: int) -> str:
     """ Generates the einsum notation for the inner product of
@@ -38,23 +39,6 @@ def makeEinsumNotation(numDims: int, axis: int) -> str:
     notation = ' -> '.join([lhs, rhs])
     
     return notation
-
-
-def take(x: np.array, ind: np.array, axis: int) -> np.array:
-    """ Retrieves slices from a given axis of a numpy array. 
-        Inputs:
-            x   : n-dimensional matrix from which the slices will be retrieved
-            ind : Array of (integers) indices to be retrieved
-            axis: Axis of <x> from which the indices will be extracted
-
-        Outputs:
-            n-dimensional matrix containing only the indices <ind> along axis <axis>
-    """
-
-    ix = [slice(None)] * x.ndim
-    ix[axis] = ind
-    return x[tuple(ix)]
-
 
 def autocorrelation(x: np.array, numLags: int, axis: int, center: bool = False) -> np.array:
     """ Computes the autocorrelation of the signals along one dimension of a matrix, and
@@ -115,7 +99,6 @@ def autocorrelation(x: np.array, numLags: int, axis: int, center: bool = False) 
     acf = np.swapaxes(acf, axis, -1)
 
     return acf
-
 
 def zeroCrossingRate(x: np.array, axis: int) -> np.array:
     """ Computes the zero-crossing rate (i.e. number of sign changes) along one dimension of an arbitrarily shaped matrix.
