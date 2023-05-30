@@ -357,7 +357,7 @@ def getHarmonics(
     return harmonicFreqs, harmonicAmps
 
 
-def harmonicModel(frequencies: np.array, amplitudes: np.array, axis: int, numPeaks: int = 30, 
+def harmonicModel(frequencies: np.array, amplitudes: np.array, axis: int, numPeaks: int = None, 
     numHarmonics: int = 10, minPadFactor: int = 1, subHarmonicLimit: float = 0.75, 
     maxRejected: int = 50, minRelativeAmplitude: int = -60) -> Tuple[np.array, np.array]:
     """ 
@@ -408,7 +408,7 @@ def harmonicModel(frequencies: np.array, amplitudes: np.array, axis: int, numPea
     """
 
     # Check inputs
-    if numPeaks < numHarmonics: numPeaks = numHarmonics + 1
+    if numPeaks is None or numPeaks < numHarmonics: numPeaks = numHarmonics + 1
 
     # Compute required constants
     frameSize = 2 * frequencies.shape[0]

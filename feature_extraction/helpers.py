@@ -1,7 +1,20 @@
 import numpy as np
 from typing import Union
 
-""" Time domain features """
+
+def makeSlice(numDims: int, indices: np.array, axis: int) -> tuple:
+    """ Generates indices to slice an array along a dynamically specified axis
+        Inputs:
+            numDims: Number of dimensions of the matrix to be sliced
+            indices: Indices along an axis to be sliced from the matrix
+            axis   : Axis along which to slice the matrix
+        Outputs:
+            ix: Indices that slice the matrix accordingly when using mtrx[ix]
+    """
+    ix       = [slice(None)] * numDims
+    ix[axis] = indices
+
+    return tuple(ix)
 
 
 def take(x: np.array, ind: Union[int, np.array], axis: int) -> np.array:
@@ -14,10 +27,7 @@ def take(x: np.array, ind: Union[int, np.array], axis: int) -> np.array:
         Outputs:
             n-dimensional matrix containing only the indices <ind> along axis <axis>
     """
-
-    ix = [slice(None)] * x.ndim
-    ix[axis] = ind
-    return x[tuple(ix)]
+    return x[makeSlice(x.ndim, ind, axis)]
 
 
 
