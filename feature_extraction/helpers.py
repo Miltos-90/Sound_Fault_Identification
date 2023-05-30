@@ -27,7 +27,8 @@ def take(x: np.array, ind: Union[int, np.array], axis: int) -> np.array:
         Outputs:
             n-dimensional matrix containing only the indices <ind> along axis <axis>
     """
-    return x[makeSlice(x.ndim, ind, axis)]
+    
+    return x[makeSlice(x.ndim, indices = ind, axis = axis)]
 
 
 
