@@ -1,8 +1,8 @@
-import numpy as np
-from typing import Tuple
-from .helpers import take
+from .preprocessing.helpers import take
 from . import preprocessing as pre
 from scipy.fftpack import dct
+from typing import Tuple
+import numpy as np
 
 def expandDimensions(arr: np.array, numDims: int, axis: int):
     """ Expands the dimensions of an array apart from a given axis.
@@ -232,7 +232,6 @@ def mfcc(amplitudes: np.array, sampleFrequency: int, numCoefficients: int, numMe
         Outputs:
             MFCCs: Matrix of MFCCs. Dimensions are the same as the input amplitudes, with the exception of
                    axis <axis>, which contains <numCoefficients> elements.
-    
     """
 
     # Make sure the DCT transform has enough data points

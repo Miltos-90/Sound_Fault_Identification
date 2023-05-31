@@ -1,8 +1,10 @@
 """ Implementation of the sinusoidal harmonic model """
 
 from scipy.signal.windows import hann
+from .helpers import take, makeSlice
 from typing  import Tuple
 import numpy as np
+
 
 def quadraticInterpolation(yl: np.array, yc: np.array, yr: np.array
     ) -> Tuple[np.array, np.array, np.array]:
@@ -188,10 +190,10 @@ def findPeaks(
                           It is used in case the number of peaks requested <nPeaks> is higher than the number of 
                           peaks that actually exist in the signal above the minimum value <minlevel>
         Outputs:
-            peakAmps  : Aplitudes of the accepted peaks
-            peakLocs  : Locations (indices) of the accepted peaks
-            peakWidths: Widths of the accepted peaks
-        Notes: If less than <npeaks> peaks exist, a smaller number of peaks will be returned.
+            peakAmps    : Aplitudes of the accepted peaks
+            peakLocs    : Locations (indices) of the accepted peaks
+            peakWidths  : Widths of the accepted peaks
+        NOTE: If less than <npeaks> peaks exist, a smaller number of peaks will be returned.
     """
 
     sh          = list(x.shape) # Shape that the output arrays should have
@@ -357,9 +359,8 @@ def getHarmonics(
     return harmonicFreqs, harmonicAmps
 
 
-def harmonicModel(frequencies: np.array, amplitudes: np.array, axis: int, numPeaks: int = None, 
-    numHarmonics: int = 10, minPadFactor: int = 1, subHarmonicLimit: float = 0.75, 
-    maxRejected: int = 50, minRelativeAmplitude: int = -60) -> Tuple[np.array, np.array]:
+def harmonicModel(frequencies: np.array, amplitudes: np.array, peakFrequencies: np.array, axis: int,
+    numHarmonics: int = 10, subHarmonicLimit: float = 0.75) -> Tuple[np.array, np.array]:
     """ 
         Extracts amplitudes and frequencies of the sinusoids that best approximate a signal, by 
         estimating its fundamental frequency from the spectral peaks (i.e. pitch detection) using an 
@@ -370,14 +371,121 @@ def harmonicModel(frequencies: np.array, amplitudes: np.array, axis: int, numPea
             3. Evaluate the slope of step 2, which gives the frequency estimate.
         
         Inputs: 
-            frequencies [Hz]: Vector of frequencies for the corresponding FFT amplitudes [Num. frequencies]
-            amplitudes [dBFS]: FFT amplitudes [DIMS]. 
-                NOTE: DIMS can be any arbitrary number of dimensions, so long as the input axis <axis>
-                      contains <Num. frequencies> elements.
-            numPeaks: Number of peaks to be extracted. A smaller number of peaks will be extracted if
-                less are present in the spectra.
-            numHarmonics: Number of harmonic frequencies (multitudes of the fundamental frequency) 
+            frequencies [Hz]: 
+                Vector of frequencies for the corresponding FFT amplitudes [Num. frequencies]
+            amplitudes [dBFS]: Array containing FFT amplitudes [DIMS]. 
+                DIMS can be any arbitrary number of dimensions, so long as the input axis <axis>
+                contains <Num. frequencies> elements.
+            peakFrequencies: Array of extracted peakFrequencies (output of peakFinder() function).
+                This array has the same dimensions as the amplitudes, with the exception of axis <axis>
+                which must contain <numHarmonics> elements.
+            axis:
+                Axis along which to search for the harmonic amplitudes and frequencies.
+            numHarmonics: 
+                Number of harmonic frequencies (multitudes of the fundamental frequency) 
                 and corresponding amplitudes to extract
+            subHarmonicLimit: 
+                Maximum harmonic number below which extracted peaks are rejected
+                (used for the removal of the DC term, subharmonics, etc.)
+            
+        Outputs:
+            harmonicFreqs: Harmonic frequencies
+            harmonicAmps : Harmonic amplitudes
+            frequencies  : Peak frequencies sorted in ascending order (from lowest to highest) excluding subharmonics
+                Dimensions are exactly the same as the dimensions of the input <amplitudes> matrix, with the
+                excpetion of the axis <axis>. The latter will contain <numHarmonics> elements instead of
+                <Num. frequencies> elements.
+            
+        References: 
+        [1] https://www.dsprelated.com/freebooks/sasp/Fundamental_Frequency_Estimation_Spectral.html
+    """
+    
+    freqs, harmonics = removeSubharmonics(peakFrequencies, subHarmonicLimit, axis)
+    fundamentalFreq  = getFundamentalFrequency(freqs, harmonics, axis)
+    harmonicFreqs, harmonicAmps = getHarmonics(fundamentalFreq, frequencies, amplitudes, numHarmonics, axis)
+    
+    return harmonicFreqs, harmonicAmps
+
+
+def extract(x: np.array, y: np.array, xq: np.array, axis: int) -> np.array:
+    """ Extracts specific elements of array y at the requested points x along a given axis.
+        Inputs:
+            x:  Array of x-coordinates at which y has been sampled. Vector of <n> elements
+            y:  Array of y-coordinates. Matrix of arbitrary dimensions with axis <axis> containing <n> elements
+            xq: Array of x-coordinates for which y is needed. Matrix of arbitrary dimensions, which should match the dimensions of matrix y on all axes apart from axis <axis>.
+            axis: Axis along which the elements will be extracted. y matrix should have <n> elements along this axis.
+        Outputs:
+            yq: Array of y-coordinates. Matrix with dimensions equal to xq
+
+        NOTE 1: This function does not perform interpolation. It returns the values of y for the indices of the values of x that are *closest* to the values xq.
+        NOTE 2:
+        Valid input dimensions should conform to the following notation or 'rule':
+            x:  (n,)
+            y:  (i, n, k)
+            xq: (i, j, k)
+        which will produce output 
+            yq: (i, j, k)
+    """
+
+    # Match/expand dimensions of the x vector to allow for vectorized
+    # searching.
+    x_ = vectorToMatrix(x, numDims = y.ndim, axis = axis)
+    yq = np.empty_like(xq)
+
+    # Get corresponding peak amplitudes
+    for h in range(xq.shape[axis]):
+
+        # Extract peak amplitudes corresponding to this peak number
+        xqCur   = take(xq, ind = np.array([h]), axis = axis)
+        closeIx = np.argmin(np.abs(x_ - xqCur), axis = axis, keepdims = True)
+        yqCur   = np.take_along_axis(y, closeIx, axis = axis)
+
+        # If a peak does not exist, zeros are returned from the harmonic model
+        notFound = xqCur == 0 
+        yqCur[notFound] = np.nan
+
+        # Add to results
+        ix = makeSlice(yq.ndim, np.array([h]),  axis)
+        yq[ix] = yqCur
+
+    return yq
+
+
+def vectorToMatrix(vector: np.array, numDims: int, axis: int) -> np.array:
+    """Converts a vector to matrix of appropriate dimensions.
+        Inputs: 
+            vector  : Vector to be converted to a matrix
+            numDims : Number of dimensions of the output matrix
+            axis    : Axis along which the elements of the vector will be placed
+        Outputs:
+            mtrx    : Matrix with <numDims> dimensions, with the elements of the 
+                      input vector lying across the <axis>-th axis.
+    """
+
+    addAxes  = tuple([ax for ax in range(numDims - 1)])
+    mtrx     = np.expand_dims(vector, axis = addAxes)
+    mtrx     = mtrx.swapaxes(-1, axis) 
+
+    return mtrx
+
+
+def peakFinder(
+    frequencies: np.array, amplitudes: np.array, axis: int, numPeaks: int = 10, minPadFactor: int = 1,
+    subHarmonicLimit: float = 0.75, maxRejected: int = 50, minRelativeAmplitude: int = -40
+    ) -> Tuple[np.array, np.array]:
+    """ Extracts peaks from a spectrum. 
+
+        Inputs:
+            frequencies [Hz]: 
+                Vector of frequencies for the corresponding FFT amplitudes [Num. frequencies]
+            amplitudes [dBFS]: 
+                Array of FFT amplitudes. It can have an arbitrary number of dimensions, so long as 
+                the input axis <axis> contains <Num. frequencies> elements.
+            axis: 
+                Axis along which to search for the harmonic amplitudes and frequencies
+            numPeaks: 
+                Number of peaks to be extracted. A smaller number of peaks will be extracted if
+                less are present in the spectra.
             minPadFactor: 
                 Minimum zero-padding factor to be used for the peak extraction 
                 approximately equal to 5 should be used for the generalized Blackman family of windows
@@ -391,24 +499,14 @@ def harmonicModel(frequencies: np.array, amplitudes: np.array, axis: int, numPea
                 Lowest relative partial amplitude a peak should have to be accepted
                 -40 [dBFS] should be used with the Hamming window family
                 -60 [dBFS] should be with Blackman window family
-            axis:
-                Axis along which to search for the harmonic amplitudes and frequencies
         
         Outputs:
-            harmonicFreqs: Harmonic frequencies
-            harmonicAmps : Harmonic amplitudes
-            frequencies  : Peak frequencies sorted in ascending order (from lowest to highest) excluding subharmonics
+            peakFreqs: Harmonic frequencies
+            peakAmps : Harmonic amplitudes
                 Dimensions are exactly the same as the dimensions of the input <amplitudes> matrix, with the
-                excpetion of the axis <axis>. The latter will contain <numHarmonics> elements instead of
+                excpetion of the axis <axis>. The latter will contain <numPeaks> elements instead of
                 <Num. frequencies> elements.
-            
-
-        References: 
-        [1] https://www.dsprelated.com/freebooks/sasp/Fundamental_Frequency_Estimation_Spectral.html
     """
-
-    # Check inputs
-    if numPeaks is None or numPeaks < numHarmonics: numPeaks = numHarmonics + 1
 
     # Compute required constants
     frameSize = 2 * frequencies.shape[0]
@@ -417,17 +515,14 @@ def harmonicModel(frequencies: np.array, amplitudes: np.array, axis: int, numPea
     minWidth  = minPadFactor * nfft / frameSize
 
     # Extract and sort peaks
-    locs, amps, widths = findPeaks(amplitudes.copy(), numPeaks, minWidth, minAmp, maxRejected, axis)
-    ix     = np.argsort(locs, axis)
-    locs   = np.take_along_axis(locs, ix, axis)
-    amps   = np.take_along_axis(amps, ix, axis)
-    widths = np.take_along_axis(widths, ix, axis)
+    amps      = amplitudes.copy() # Make a copy as it will modified in-place in the findPeaks() function
+    locs, amps, widths = findPeaks(amps, numPeaks, minWidth, minAmp, maxRejected, axis)
+    ix        = np.argsort(locs, axis)
+    locs      = np.take_along_axis(locs, ix, axis)
+    amps      = np.take_along_axis(amps, ix, axis)
+    widths    = np.take_along_axis(widths, ix, axis)
 
-    # Compute fundamental frequency
-    freqs, harmonics = removeSubharmonics(frequencies[locs], subHarmonicLimit, axis)
-    fundamentalFreq  = getFundamentalFrequency(freqs, harmonics, axis)
+    peakFreqs, _ = removeSubharmonics(frequencies[locs], subHarmonicLimit, axis)
+    peakAmps = extract(x = frequencies, y = amplitudes, xq = peakFreqs, axis = axis)
 
-    # Extract harmonics
-    harmonicFreqs, harmonicAmps = getHarmonics(fundamentalFreq, frequencies, amplitudes, numHarmonics, axis)
-    
-    return harmonicFreqs, harmonicAmps, freqs
+    return peakFreqs, peakAmps
