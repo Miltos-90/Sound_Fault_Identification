@@ -423,7 +423,7 @@ def extract(x: np.array, y: np.array, xq: np.array, axis: int) -> np.array:
             x:  (n,)
             y:  (i, n, k)
             xq: (i, j, k)
-        which will produce output 
+        which will produce output
             yq: (i, j, k)
     """
 
@@ -436,7 +436,7 @@ def extract(x: np.array, y: np.array, xq: np.array, axis: int) -> np.array:
     for h in range(xq.shape[axis]):
 
         # Extract peak amplitudes corresponding to this peak number
-        xqCur   = take(xq, ind = np.array([h]), axis = axis)
+        xqCur   = take(xq, indices = np.array([h]), axis = axis)
         closeIx = np.argmin(np.abs(x_ - xqCur), axis = axis, keepdims = True)
         yqCur   = np.take_along_axis(y, closeIx, axis = axis)
 

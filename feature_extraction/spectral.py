@@ -223,15 +223,15 @@ def variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.arra
 def mfcc(amplitudes: np.array, sampleFrequency: int, numCoefficients: int, numMelFilters: int, axis: int):
     """ Computes the Mel-frequency cepstral coefficients (MFCCs).
         Inputs:
-            amplitudes      : Matrix of complex FFT amplitudes (arbitrary dimensions)
-            sampleFrequency : Sampling frequency of the signal
-            numCoefficients : Number of coefficients to evaluate. Note that the first coefficient, being
+            amplitudes     : Matrix of complex FFT amplitudes (arbitrary dimensions)
+            sampleFrequency: Sampling frequency of the signal
+            numCoefficients: Number of coefficients to evaluate. Note that the first coefficient, being
                               directly proportional to the energy is not returned.
-            numMelFilters   : Number of Mel filters to be used for the conversion to Mel scale.
-            axis            : Axis along which to compute the MFCCs
+            numMelFilters  : Number of Mel filters to be used for the conversion to Mel scale.
+            axis           : Axis along which to compute the MFCCs
         Outputs:
-            MFCCs: Matrix of MFCCs. Dimensions are the same as the input amplitudes, with the exception of
-                   axis <axis>, which contains <numCoefficients> elements.
+            MFCCs: Matrix of MFCCs. Dimensions are the same as the input amplitudes, with 
+                   the exception of axis <axis>, which contains <numCoefficients> elements.
     """
 
     # Make sure the DCT transform has enough data points
