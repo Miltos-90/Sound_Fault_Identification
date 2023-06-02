@@ -24,13 +24,14 @@ def windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
     return acf, ecf
 
 
-def fourier(signal: np.array, sampleFrequency: int, axis: int) -> Tuple[np.array, np.array]:
+def fourier(signal: np.array, sampleFrequency: int, axis: int, **kwargs) -> Tuple[np.array, np.array]:
     """ 
     Computes the Fast Fourier Transformation (FFT) of a signal along an axis
     Inputs:
         signal          : n-Dimensional array for the FFT computation
         sampleFrequency : Sampling frequency [Hz]
         axis            : Axis along which to apply the FFT
+        kwargs          : Additional arguments for the scipy.fft or scipy.fftfreq functions
     Outputs:
         frequencies     : Vector of frequencies for the corresponding FFT amplitudes
         amplitudes      : FFT amplitudes on the above frequencies
@@ -46,14 +47,16 @@ def fourier(signal: np.array, sampleFrequency: int, axis: int) -> Tuple[np.array
     signal *= np.expand_dims(windowSig, axesExpand)
 
     # Compute FFT and power spectral density
-    freqs = fftfreq(numSamples, 1 / sampleFrequency)
-    sigF  = fft(signal, axis = axis, norm = "ortho")
+    n     = kwargs.pop("n", numSamples)
+    freqs = fftfreq(n, 1 / sampleFrequency)
+    norm  = kwargs.pop("norm", "ortho") # ortho is the default for the 'norm' argument
+    sigF  = fft(signal, **kwargs, axis = axis, norm = "ortho", n = n)
 
     # Apply window corrections
     acf, _ = windowCorrectionFactors(windowSig)
     sigF *= acf
     
-    # Cut-off at the highest frequency and ignre negative frequencies
+    # Cut-off at the highest frequency and ignore negative frequencies
     fNyquist  = sampleFrequency / 2.0
     keep      = np.where( (freqs >= 0) & (freqs < fNyquist) )[0]
     freqs     = freqs[keep]
