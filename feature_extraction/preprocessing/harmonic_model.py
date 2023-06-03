@@ -215,7 +215,7 @@ def findPeaks(
         ulim, camp = getPeakEnd(ploc, pamp, tol, x, axis)
         llim       = getPeakStart(ploc, pamp, tol, x, axis)
         x          = removePeak(camp, ulim, llim, x, axis)
-        stop[pamp == minpeak] = True # Min amplitude reached. stop
+        stop[pamp <= minpeak] = True # Min amplitude reached. stop
         acc, mask  = acceptPeaks(llim, ulim, minwidth, stop, ipeak, peakLocs, numDims, axis)
         
         # Append to outputs

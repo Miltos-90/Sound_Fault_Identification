@@ -24,57 +24,97 @@ def windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
     return acf, ecf
 
 
-def fourier(signal: np.array, sampleFrequency: int, axis: int, **kwargs) -> Tuple[np.array, np.array]:
+def window(nsample: int, ndim: int, axis: int) -> np.array:
+    """ Generates an appropriate window for the signals prior to the DFT calculation.
+        Inputs:
+            nsample: Number of samples of the window
+            ndim   : Number of dimensions of the window
+            axis   : Axis along which the window will be applied
+        Outputs:
+            window: Window(s) matrix
+    """
+
+    expand = list(range(ndim)) # Axes along which to expand the window
+    expand.remove(axis)
+
+    window = hann(M = nsample)
+    window = np.expand_dims(window, expand)
+
+    return window
+
+def truncate(frequencies: np.array, amplitudes: np.array, 
+    sampleFrequency: int, axis: int) -> Tuple[np.array, np.array]:
+    """ Truncates the outputs of the scipy.fft.fft and scipy.fft.fftfreq
+        functions, removing negative frequencies and frequencies higher than
+        the Nyquist frequency.
+
+        Inputs:
+            frequencies     : Frequency vector computed by the scipy.fft.fftfreq function
+            amplitudes      : Amplitude matrix computed by the scipy.fft.fft function
+            sampleFrequency : Sampling rate of the signals in Hertz
+            axis            : Axis along which to truncate.
+        Outputs:
+            frequencies, amplitudes: Truncated frequency vector and amplitude matrix
+    """
+
+    fNyq = sampleFrequency / 2.0 # Nyquist frequency
+    keep = np.where( (frequencies >= 0) & (frequencies < fNyq) )[0]
+
+    return frequencies[keep], amplitudes.take(keep, axis = axis)
+
+
+def fourier(signal: np.array, sampleFrequency: int, axis: int, 
+    cutoff: bool = True, **kwargs) -> Tuple[np.array, np.array]:
     """ 
     Computes the Fast Fourier Transformation (FFT) of a signal along an axis
     Inputs:
         signal          : n-Dimensional array for the FFT computation
         sampleFrequency : Sampling frequency [Hz]
         axis            : Axis along which to apply the FFT
+        cutoff          : Indicates if the output should be truncated to exclude frequencies
+                          higher than the Nyquist frequency or negative frequencies.
         kwargs          : Additional arguments for the scipy.fft or scipy.fftfreq functions
     Outputs:
         frequencies     : Vector of frequencies for the corresponding FFT amplitudes
         amplitudes      : FFT amplitudes on the above frequencies
     """
 
-    # Num samples of each chunk
-    numSamples = signal.shape[axis]
+    numSamples, numDims = signal.shape[axis], signal.ndim
 
     # Make and apply window
-    windowSig  = hann(M = numSamples)
-    axesExpand = list(range(signal.ndim)) # Axes along which to expand the window
-    axesExpand.remove(axis)
-    signal *= np.expand_dims(windowSig, axesExpand)
+    windowSig        = window(numSamples, numDims, axis)
+    ampCorrection, _ = windowCorrectionFactors(windowSig)
+    signalWindow     = signal * windowSig
 
-    # Compute FFT and power spectral density
+    # Compute FFT
     n     = kwargs.pop("n", numSamples)
+    norm  = kwargs.pop("norm", "ortho")
+
     freqs = fftfreq(n, 1 / sampleFrequency)
-    norm  = kwargs.pop("norm", "ortho") # ortho is the default for the 'norm' argument
-    sigF  = fft(signal, **kwargs, axis = axis, norm = "ortho", n = n)
-
-    # Apply window corrections
-    acf, _ = windowCorrectionFactors(windowSig)
-    sigF *= acf
+    amps  = fft(signalWindow, **kwargs, axis = axis, norm = "ortho", n = n)
+    amps *= ampCorrection
     
-    # Cut-off at the highest frequency and ignore negative frequencies
-    fNyquist  = sampleFrequency / 2.0
-    keep      = np.where( (freqs >= 0) & (freqs < fNyquist) )[0]
-    freqs     = freqs[keep]
-    sigF      = sigF.take(keep, axis = axis)
+    # Cut-off negative frequencies, and frequencies higher than the Nyquist
+    if cutoff: 
+        freqs, amps = truncate(freqs, amps, sampleFrequency, axis)
 
-    return freqs, sigF
+    return freqs, amps
 
 
-def psd(spectrum: np.array, sampleFrequency: int) -> np.array:
+def psd(spectrum: np.array, sampleFrequency: int, correction: bool = True) -> np.array:
     """ Computes the power spectral density (PSD) from the FFT spectrum. 
         Inputs:
             signal          : n-Dimensional array for the FFT computation
             sampleFrequency : Sampling frequency [Hz]
+            correction      : Indicates if an energy correction factor due to windowing
+                              should be applied.
         Outputs:
-            amplitudes: PSD amplitudes
+            amplitudes      : Amplitudes of the power spectral density
     """
 
-    _, ecf = windowCorrectionFactors(hann(M = spectrum.shape[0]))
+    if correction: _, ecf = windowCorrectionFactors(hann(M = spectrum.shape[0]))
+    else: ecf = 1
+
     Sxx = spectrum * spectrum.conj() / sampleFrequency
 
     return Sxx.real * ecf
@@ -115,7 +155,7 @@ def makeOctave(band: float, limits: list = [20, 20000]):
     return np.column_stack((fLow, fCenter, fHigh)) # Convert to matrix
 
 
-def _makeGainCurve(fVec: np.array, fCenter: int, bandwidth: int) -> np.array:
+def makeGainCurve(fVec: np.array, fCenter: int, bandwidth: int) -> np.array:
     """ Evaluates the gain-vs-efficiency curve of a 1/b-octave filter that meets the
         Class 0 tolerance requirements of IEC 61260.
         Inputs: 
@@ -172,7 +212,7 @@ def octave(frequencies: np.array, amplitudes: np.array, bandwidthDesignator: int
         bandFreqs = frequencies[bandIdx]
 
         # Compute the gain-efficiency curve
-        gain = _makeGainCurve(bandFreqs, fCenter, bandwidthDesignator)
+        gain = makeGainCurve(bandFreqs, fCenter, bandwidthDesignator)
         
         # Grab the PSD amplitudes corresponding to this band
         curPSD = np.take_along_axis(amplitudes, expand(bandIdx), axis = axis)
