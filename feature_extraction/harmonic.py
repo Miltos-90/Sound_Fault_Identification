@@ -1,7 +1,7 @@
 """ This module contains all functions that extract the harmonic features of a sound signal. """
 
 import numpy as np
-from .preprocessing.helpers import take
+from .preprocessing.helpers import take, expand
 from typing import Tuple
 
 
@@ -18,7 +18,7 @@ def energy(x: np.array, axis: int) -> np.array:
 
 def inharmonicity(
     harmonicFrequencies: np.array, harmonicAmplitudes: np.array, peakFrequencies: np.array, 
-    peakAmplitudes: np.array, fundamentalFrequencies: np.array, axis: int) -> np.array:
+    peakAmplitudes: np.array, axis: int) -> np.array:
     """ Computes a signal's inharmonicity, i.e. the divergence of the signal's spectral components
         from a purely harmonic signal.
         Inputs:
@@ -26,7 +26,6 @@ def inharmonicity(
             harmonicAmplitudes     : Array of harmonic amplitudes
             peakFrequencies        : Array of peak amplitudes
             peakAmplitudes         : Array of peak amplitudes
-            fundamentalFrequencies : Array of fundamental amplitudes
             axis                   : Axis along which to perform the computations
             NOTE: All matrices can have an arbitrary number of dimensions, as long as they are the same
                   for all.
@@ -35,15 +34,15 @@ def inharmonicity(
             <axis> having been removed.
 
     """
-
-   # Expand/align dimensions
-    exAx     = [a for a in list(range(harmonicFrequencies.ndim)) if a != axis]
-    harmNums = np.expand_dims(np.arange(harmonicFrequencies.shape[axis]), axis = exAx)
+    ind      = np.arange(harmonicFrequencies.shape[axis])
+    harmNums = expand(ind, harmonicFrequencies.ndim, axis)
     
     # Compute coefficient
     # If less than numHarmonics peaks have been found, the matrix is filled with zeroes. 
     # Convert those to nans so that they will be ignored by nansum()
     peakFrequencies[peakFrequencies == 0] = np.nan 
+    fundamentalFrequencies = take(harmonicFrequencies, [0], axis = axis)
+
     t   = np.abs( peakFrequencies - harmNums * fundamentalFrequencies ) * harmonicAmplitudes ** 2
     num = np.nansum(t, axis = axis)
     den = np.nansum(harmonicAmplitudes ** 2, axis = axis)

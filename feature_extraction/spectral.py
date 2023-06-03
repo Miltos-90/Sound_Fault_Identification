@@ -1,37 +1,8 @@
-from .preprocessing.helpers import take
+from .preprocessing.helpers import take, expand
 from . import preprocessing as pre
 from scipy.fftpack import dct
 from typing import Tuple
 import numpy as np
-
-def expandDimensions(arr: np.array, numDims: int, axis: int):
-    """ Expands the dimensions of an array apart from a given axis.
-        Inputs:
-            arr    : Array whose dimensions will be expanded
-            numDims: Final number of dimensions the array will have
-            axis   : Axis to exclude from the expansion
-        Outputs:
-            Expanded array
-    """
-
-    ax = [a for a in range(numDims) if a != axis]
-    return np.expand_dims(arr, ax)
-
-def alignDimensions(
-    arr1: np.array, arr2: np.array, axis: int) -> Tuple[np.array, np.array]:
-    """ Matches the number of dimensions of two arrays, excluding a specific
-        axis.
-        Inputs:
-            arr1, arr2: Arrays whose dimensions will be matched
-            axis: Axis to exclude when adding dimensions
-        Outputs: 
-            Both arrays with the same number of dimensions
-    """
-
-    if   arr1.ndim < arr2.ndim: arr1 = expandDimensions(arr1, arr2.ndim, axis)
-    elif arr2.ndim < arr1.ndim: arr2 = expandDimensions(arr2, arr1.ndim, axis)
-
-    return arr1, arr2
 
 def normalizeSpectrum(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array:
     """ Normalizes the amplitudes of a spectrum. 
@@ -68,13 +39,9 @@ def getMoments(x: np.array, y: np.array, moments: list, axis: int) -> np.array:
             Matrix of computed moments. Dimensions: x.ndims + 1. Last axes denotes the moments in ascending order.
     """
 
-    # Force numpy array
-    moments = np.asarray(moments)
-    
-    # Expand dimensions for the moments vector: [dimensions of x + 1]
-    moments = np.expand_dims(moments, list(range(x.ndim)))
+    moments = expand(np.asarray(moments), x.ndim)
 
-    # Moments vector. Dimensions: x.ndims + 1. Dimensionality of last axis: numMoments
+    # Moments vector. Dimensions: x.ndims + 1. Dimensionality of last axis= moments.shape[0]
     dx  = np.diff(x, axis = axis, prepend = 0.0)
     out = (y[..., np.newaxis] * dx[..., np.newaxis] * x[..., np.newaxis] ** moments).sum(axis = axis)
 
@@ -85,15 +52,10 @@ def shapeDescriptors(
     ) -> Tuple[np.array, np.array, np.array, np.array]:
     """ Computes several descriptors of the spectral shape.
         Inputs:
-            frequencies: Matrix containing the frequencies corresponding to the spectral amplitudes
+            frequencies: Vector containing the frequencies corresponding to the spectral amplitudes.
             amplitudes : Matrix containing the spectral amplitudes
             axis       : Axis along which to compute the spectral descriptors
             normalize  : Boolean indicating if the spectrum should be normalized.
-            NOTE: frequencies and amplitudes are assumed to have the same number of dimensions. Furthermore
-                  along axis <axis> the matrices should have the same number of elements. For instance,
-                  valid dimensions could be the following:
-                    amplitudes: [100, 2000, 100], frequencies[1, 2000, 1] for axis = 1,
-                    amplitudes: [100, 100, 2000], frequencies[1, 1, 2000] for axis = 2, etc.
         Outputs:
             Centroid  : The barycenter of the spectrum
             Spread    : Spread of the spectrum around the mean value
@@ -101,11 +63,17 @@ def shapeDescriptors(
             Kurtosis  : Flatness of the spectrum
     """
 
+    # Expand dimensions of the frequency vector if needed
+    if frequencies.ndim != amplitudes.ndim:
+        frequencies_ = expand(frequencies, amplitudes.ndim, axis = axis)
+    else:
+        frequencies_ = frequencies
+
     # Normalize the spectrum
-    if normalize: amplitudes = normalizeSpectrum(frequencies, amplitudes, axis = axis)
+    if normalize: amplitudes = normalizeSpectrum(frequencies_, amplitudes, axis = axis)
 
     # Get required spectral moments
-    moments = getMoments(frequencies, amplitudes, moments = list(range(5)), axis = axis)
+    moments = getMoments(frequencies_, amplitudes, moments = list(range(5)), axis = axis)
 
     # Compute the quantities that describe the spectral shape
     centroid = moments[..., 1] / moments[..., 0]
@@ -115,28 +83,30 @@ def shapeDescriptors(
 
     return centroid, spread, skewness, kurtosis
 
+
 def slope(x: np.array, y: np.array, axis: int) -> np.array:
     
     """ Evaluates the slope of a linear regression model on the given data in a vectorized manner.
         Inputs: 
-            x    : Matrix of dependent variables (arbitrary dimensions)
+            x    : Vector of dependent variables (arbitrary dimensions)
             y    : Matrix of independent variables of (dimensions same as x)
-            axis : Axis along which to perform computations
-            NOTE: x and y are assumed to have the same number of dimensions. Furthermore along axis 
-                  <axis> the matrices should have the same number of elements. For instance,
-                  valid dimensions could be the following:
-                    amplitudes: [100, 2000, 100], frequencies[1, 2000, 1] for axis = 1,
-                    amplitudes: [100, 100, 2000], frequencies[1, 1, 2000] for axis = 2, etc.
+            axis : Axis along which to perform computations.
         Outputs:
             s : slope of linear model
     """
 
-    n  = y.shape[axis]                              # Num. points
-    x_ = x.sum(axis = axis, keepdims = True)        # i.e.: x
-    y_ = y.sum(axis = axis, keepdims = True)        # i.e.: y
-    xy = (x * y).sum( axis = axis, keepdims = True) # i.e.: x * y
-    xx = (x * x).sum(axis = axis, keepdims = True)  # i.e.: x * x
-    s  = (n * xy - x_ * y_) / (n * xx - x_ * x_)    # Fitted slope
+    # Expand dimensions of the x vector if needed
+    if x.ndim != y.ndim: 
+        xEx = expand(x, y.ndim, axis = axis)
+    else:
+        xEx = x
+
+    n  = y.shape[axis]                                  # Num. points
+    x_ = xEx.sum(axis = axis, keepdims = True)          # i.e.: x
+    y_ = y.sum(axis = axis, keepdims = True)            # i.e.: y
+    xy = (xEx * y).sum( axis = axis, keepdims = True)   # i.e.: x * y
+    xx = (xEx * xEx).sum(axis = axis, keepdims = True)  # i.e.: x * x
+    s  = (n * xy - x_ * y_) / (n * xx - x_ * x_)        # Fitted slope
 
     # Special case for a single point
     s[n == 1] = y_[n == 1]  / x_[n == 1]  
@@ -150,18 +120,19 @@ def decrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array
             frequencies: Frequency vector
             amplitudes : Matrix containing the spectral amplitudes
             axis       : Axis along which to perform computations
-            NOTE: frequencies and amplitudes are assumed to have the same number of dimensions. Furthermore
-                  along axis <axis> the matrices should have the same number of elements. For instance,
-                  valid dimensions could be the following:
-                    amplitudes: [100, 2000, 100], frequencies[1, 2000, 1] for axis = 1,
-                    amplitudes: [100, 100, 2000], frequencies[1, 1, 2000] for axis = 2, etc.
         Outputs:
             decrease: slope of linear model
     """
 
-    dFreq    = np.diff(frequencies, axis = 1)
-    dAmp     = np.diff(amplitudes, axis = 1)
-    decrease = np.sum(dAmp / dFreq, axis = 1)
+    # Expand dimensions of the frequency vector if needed
+    if frequencies.ndim != amplitudes.ndim:
+        frequencies_ = expand(frequencies, amplitudes.ndim, axis = axis)
+    else:
+        frequencies_ = frequencies
+
+    dFreq    = np.diff(frequencies_, axis = axis)
+    dAmp     = np.diff(amplitudes,   axis = axis)
+    decrease = np.sum(dAmp / dFreq,  axis = axis)
 
     return decrease
 
@@ -175,28 +146,32 @@ def rolloffFrequency(
             amplitudes : Matrix containing the spectral amplitudes
             axis       : Axis along which to perform computations
             threshold  : Cut-off energy content of the signal
-            NOTE: frequencies and amplitudes are assumed to have the same number of dimensions. Furthermore
-                  along axis <axis> the matrices should have the same number of elements. For instance,
-                  valid dimensions could be the following:
-                    amplitudes: [100, 2000, 100], frequencies[1, 2000, 1] for axis = 1,
-                    amplitudes: [100, 100, 2000], frequencies[1, 1, 2000] for axis = 2, etc.
         Outputs:
             Roll-off frequencies matrix. Output dimensions are the same as the amplitudes input
             except from axis <axis> which contains a single element, the roll-off frequency
     """
 
+    # Expand dimensions of the frequency vector if needed
+    if frequencies.ndim != amplitudes.ndim:
+        frequencies_ = expand(frequencies, amplitudes.ndim, axis = axis)
+    else:
+        frequencies_ = frequencies
+
+    # Ensure that all amplitudes are positive
+    amps = amplitudes + np.abs(amplitudes.min(axis = axis, keepdims = True))
+
     # Compute the normalized cumulative sum of the power amplitudes
-    ampsCumsum = np.cumsum(amplitudes, axis = axis)
+    ampsCumsum = np.cumsum(amps, axis = axis)
     ampsCumsum /= ampsCumsum.max(axis = axis, keepdims = True)
 
     # Find the index of the amplitude closest to the threshold value
     diffs = np.abs(ampsCumsum - threshold)
-    ix    = np.argmin(diffs, axis = 1, keepdims = True)
+    ix    = np.argmin(diffs, axis = axis, keepdims = True)
 
     # Get roll-off frequency
-    rolloffFrequency = np.take_along_axis(frequencies, ix, axis = axis)
+    rolloffFrequency = np.take_along_axis(frequencies_, ix, axis = axis)
 
-    return rolloffFrequency
+    return np.squeeze(rolloffFrequency, axis = axis)
 
 def variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.array:
     """ Computes the spectral variation (also known as spectral flux), i.e.e the amount of 
@@ -239,8 +214,9 @@ def mfcc(amplitudes: np.array, sampleFrequency: int, numCoefficients: int, numMe
 
     # Apply mid-ear filter on the input amplitudes
     _, weights = pre.filters.midEar(sampleFrequency, worN = amplitudes.shape[axis])
-    weights    = np.expand_dims(weights, axis = [a for a in range(amplitudes.ndim) if a != axis])
-    amps       = pre.amplitudeTodb(amplitudes * weights)
+    weights    = expand(weights, amplitudes.ndim, axis)
+    amps       = np.abs(amplitudes * weights)
+    amps       = pre.amplitudeTodb(amps, reference = amps.min(axis = axis))
 
     # Mel band conversion
     melEnergy  = pre.criticalBandEnergy(amps, sampleFrequency, numFilters = numMelFilters, scale = 'mel', axis = axis)

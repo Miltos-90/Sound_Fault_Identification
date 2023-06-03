@@ -53,7 +53,7 @@ def autocorrelation(x: np.array, numLags: int, axis: int, center: bool = False) 
                      from the data.
         Outputs:
             acf:     Matrix with estimated autocorrelations. The dimensions of the output matrix equal those of
-                     the input matrix with the excpetion of axis <axis>, which contains <numLags> elements.
+                     the input matrix with the exception of axis <axis>, which contains <numLags> elements.
 
     """
 
@@ -98,7 +98,7 @@ def autocorrelation(x: np.array, numLags: int, axis: int, center: bool = False) 
     # Swapaxes to match input matrix dimensions
     acf = np.swapaxes(acf, axis, -1)
 
-    return acf
+    return take(acf, np.arange(1, lagLen), axis = axis)
 
 def zeroCrossingRate(x: np.array, axis: int) -> np.array:
     """ Computes the zero-crossing rate (i.e. number of sign changes) along one dimension of an arbitrarily shaped matrix.

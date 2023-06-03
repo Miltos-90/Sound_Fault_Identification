@@ -2,6 +2,7 @@
 from scipy.signal.windows import hann
 from scipy.fft import fft, fftfreq
 from typing import Tuple
+from .helpers import expand
 import numpy as np
 
 def windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
@@ -34,13 +35,8 @@ def window(nsample: int, ndim: int, axis: int) -> np.array:
             window: Window(s) matrix
     """
 
-    expand = list(range(ndim)) # Axes along which to expand the window
-    expand.remove(axis)
+    return expand(hann(M = nsample), ndim, axis)
 
-    window = hann(M = nsample)
-    window = np.expand_dims(window, expand)
-
-    return window
 
 def truncate(frequencies: np.array, amplitudes: np.array, 
     sampleFrequency: int, axis: int) -> Tuple[np.array, np.array]:
