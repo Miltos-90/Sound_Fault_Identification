@@ -1,8 +1,8 @@
 """ This module contains all functions that extract the harmonic features of a sound signal. """
 
 import numpy as np
-from .preprocessing.helpers import take, expand
 from typing import Tuple
+from . import preprocessing as pre
 
 
 def energy(x: np.array, axis: int) -> np.array:
@@ -35,13 +35,13 @@ def inharmonicity(
 
     """
     ind      = np.arange(harmonicFrequencies.shape[axis])
-    harmNums = expand(ind, harmonicFrequencies.ndim, axis)
+    harmNums = pre.expand(ind, harmonicFrequencies.ndim, axis)
     
     # Compute coefficient
     # If less than numHarmonics peaks have been found, the matrix is filled with zeroes. 
     # Convert those to nans so that they will be ignored by nansum()
     peakFrequencies[peakFrequencies == 0] = np.nan 
-    fundamentalFrequencies = take(harmonicFrequencies, [0], axis = axis)
+    fundamentalFrequencies = pre.take(harmonicFrequencies, [0], axis = axis)
 
     t   = np.abs( peakFrequencies - harmNums * fundamentalFrequencies ) * harmonicAmplitudes ** 2
     num = np.nansum(t, axis = axis)
@@ -83,8 +83,8 @@ def oddToEvenEnergyRatio(amplitudes: np.array, axis: int) -> np.array:
 
     harmAmps2 = amplitudes ** 2
     numSample = amplitudes.shape[axis]
-    oddHarms  = take(harmAmps2, np.arange(1, numSample, 2), axis)
-    evenHarms = take(harmAmps2, np.arange(0, numSample - 1, 2), axis)
+    oddHarms  = pre.take(harmAmps2, np.arange(1, numSample, 2), axis)
+    evenHarms = pre.take(harmAmps2, np.arange(0, numSample - 1, 2), axis)
     oer       = np.sum(oddHarms, axis = axis) / np.sum(evenHarms, axis = axis)
 
     return oer
@@ -101,9 +101,32 @@ def tristimulus(amplitudes: np.array, axis: int) -> Tuple[np.array, np.array, np
     """
 
     s  =  amplitudes.sum(axis)
-    t1 = take(amplitudes, 1, axis) / s
-    t2 = take(amplitudes, np.arange(2, 5), axis).sum(axis) / s
-    t3 = take(amplitudes, np.arange(5, amplitudes.shape[axis]), axis).sum(axis) / s
+    t1 = pre.take(amplitudes, 1, axis) / s
+    t2 = pre.take(amplitudes, np.arange(2, 5), axis).sum(axis) / s
+    t3 = pre.take(amplitudes, np.arange(5, amplitudes.shape[axis]), axis).sum(axis) / s
 
     return t1, t2, t3
 
+
+def deviation(
+    frequencies: np.array, amplitudes: np.array, harmonicFrequencies: np.array, 
+    harmonicAmplitudes: np.array, sampleFrequency: int, axis: int):
+    """ Computes the harmonic spectral deviation (i.e. the deviation of the amplitude harmonic peaks
+        from the global spectral envelope).
+        Inputs:
+            amplitudes           : Matrix containing the spectral amplitudes
+            frequencies          : Vector containing the frequencies corresponding to the spectral amplitudes
+            harmonicFrequencies  : Array of harmonic frequencies
+            harmonicAmplitudes   : Array of harmonic amplitudes
+            sampleFrequency      : Sampling rate in Hertz
+            axis                 : Axis along which to compute the spectral descriptors
+        Outputs:
+            dev : Harmonic spectral deviation of the amplitudes along axis <axis>
+    """
+
+    f0   = pre.take(harmonicFrequencies, [0], axis = axis) # Extract fundamental frequency
+    env  = pre.envelopes.spectral(amplitudes, sampleFrequency, fundamentalFrequency = f0, axis = axis)
+    amps = pre.extract(frequencies, env, harmonicFrequencies, axis = axis)
+    dev  = np.abs(np.sum(harmonicAmplitudes - amps, axis = axis)) / harmonicAmplitudes.shape[axis]
+
+    return dev

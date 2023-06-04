@@ -3,7 +3,7 @@
 import numpy as np
 from numpy.fft  import rfftfreq
 
-def hertz2mel(frequency: np.array) -> np.array:
+def _hertz2mel(frequency: np.array) -> np.array:
     """
     Convert frequency from the Hertz scale to the Mel scale.
     Inputs:
@@ -14,7 +14,7 @@ def hertz2mel(frequency: np.array) -> np.array:
 
     return 2595 * np.log10(1 + (frequency / 700))
 
-def mel2hertz(mel: np.array) -> np.array:
+def _mel2hertz(mel: np.array) -> np.array:
     """
     Convert Mels to Hertz scale
     Inputs:
@@ -49,10 +49,10 @@ def filterbank(numDFTbins: int, numFilters: int, sampleFrequency: int, normalize
 
     """
     minFreq, maxFreq = 0, sampleFrequency // 2
-    minMel, maxMel   = hertz2mel(minFreq), hertz2mel(maxFreq)
+    minMel, maxMel   = _hertz2mel(minFreq), _hertz2mel(maxFreq)
     
     # uniformly spaced values on the mel scale, translated back into Hz
-    melBins = mel2hertz(np.linspace(minMel, maxMel, numFilters + 2))
+    melBins = _mel2hertz(np.linspace(minMel, maxMel, numFilters + 2))
 
     # the centers of the frequency bins for the DFT
     hzBins  = rfftfreq(numDFTbins, 1.0 / sampleFrequency)

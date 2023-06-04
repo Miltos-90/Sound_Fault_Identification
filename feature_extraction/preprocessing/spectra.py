@@ -1,11 +1,12 @@
 """ Collection of functions used to perform frquency-space analysis of the signals. """
 from scipy.signal.windows import hann
 from scipy.fft import fft, fftfreq
-from typing import Tuple
 from .helpers import expand
+from typing import Tuple
 import numpy as np
 
-def windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
+
+def _windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
     """ Computes the amplitude and energy correction factors for a window signal according to [1]. 
         (agrees with the values reported in [2] for various windows.)
         Inputs: window signal vector
@@ -25,7 +26,7 @@ def windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
     return acf, ecf
 
 
-def window(nsample: int, ndim: int, axis: int) -> np.array:
+def _window(nsample: int, ndim: int, axis: int) -> np.array:
     """ Generates an appropriate window for the signals prior to the DFT calculation.
         Inputs:
             nsample: Number of samples of the window
@@ -38,7 +39,7 @@ def window(nsample: int, ndim: int, axis: int) -> np.array:
     return expand(hann(M = nsample), ndim, axis)
 
 
-def truncate(frequencies: np.array, amplitudes: np.array, 
+def _truncate(frequencies: np.array, amplitudes: np.array, 
     sampleFrequency: int, axis: int) -> Tuple[np.array, np.array]:
     """ Truncates the outputs of the scipy.fft.fft and scipy.fft.fftfreq
         functions, removing negative frequencies and frequencies higher than
@@ -78,8 +79,8 @@ def fourier(signal: np.array, sampleFrequency: int, axis: int,
     numSamples, numDims = signal.shape[axis], signal.ndim
 
     # Make and apply window
-    windowSig        = window(numSamples, numDims, axis)
-    ampCorrection, _ = windowCorrectionFactors(windowSig)
+    windowSig        = _window(numSamples, numDims, axis)
+    ampCorrection, _ = _windowCorrectionFactors(windowSig)
     signalWindow     = signal * windowSig
 
     # Compute FFT
@@ -92,7 +93,7 @@ def fourier(signal: np.array, sampleFrequency: int, axis: int,
     
     # Cut-off negative frequencies, and frequencies higher than the Nyquist
     if cutoff: 
-        freqs, amps = truncate(freqs, amps, sampleFrequency, axis)
+        freqs, amps = _truncate(freqs, amps, sampleFrequency, axis)
 
     return freqs, amps
 
@@ -108,7 +109,7 @@ def psd(spectrum: np.array, sampleFrequency: int, correction: bool = True) -> np
             amplitudes      : Amplitudes of the power spectral density
     """
 
-    if correction: _, ecf = windowCorrectionFactors(hann(M = spectrum.shape[0]))
+    if correction: _, ecf = _windowCorrectionFactors(hann(M = spectrum.shape[0]))
     else: ecf = 1
 
     Sxx = spectrum * spectrum.conj() / sampleFrequency
@@ -116,7 +117,7 @@ def psd(spectrum: np.array, sampleFrequency: int, correction: bool = True) -> np
     return Sxx.real * ecf
 
 
-def makeOctave(band: float, limits: list = [20, 20000]):
+def _makeOctave(band: float, limits: list = [20, 20000]):
     """ Generator of center and high/low frequency limists for octave/fractional-octave bands
         lying within a given frequency range.
         Inputs:
@@ -151,7 +152,7 @@ def makeOctave(band: float, limits: list = [20, 20000]):
     return np.column_stack((fLow, fCenter, fHigh)) # Convert to matrix
 
 
-def makeGainCurve(fVec: np.array, fCenter: int, bandwidth: int) -> np.array:
+def _makeGainCurve(fVec: np.array, fCenter: int, bandwidth: int) -> np.array:
     """ Evaluates the gain-vs-efficiency curve of a 1/b-octave filter that meets the
         Class 0 tolerance requirements of IEC 61260.
         Inputs: 
@@ -180,7 +181,7 @@ def octave(frequencies: np.array, amplitudes: np.array, bandwidthDesignator: int
     # Get frequency bands for the given octave
     octaveBand      = 1/bandwidthDesignator
     frequencyLimits = [20, frequencies.max()]
-    frequencyRange  = makeOctave(octaveBand, frequencyLimits)
+    frequencyRange  = _makeOctave(octaveBand, frequencyLimits)
 
     # Matrix with PSD levels for each octave band
     # Matrix shape: Along the axis on which the octave calculation will be 
@@ -208,7 +209,7 @@ def octave(frequencies: np.array, amplitudes: np.array, bandwidthDesignator: int
         bandFreqs = frequencies[bandIdx]
 
         # Compute the gain-efficiency curve
-        gain = makeGainCurve(bandFreqs, fCenter, bandwidthDesignator)
+        gain = _makeGainCurve(bandFreqs, fCenter, bandwidthDesignator)
         
         # Grab the PSD amplitudes corresponding to this band
         curPSD = np.take_along_axis(amplitudes, expand(bandIdx), axis = axis)

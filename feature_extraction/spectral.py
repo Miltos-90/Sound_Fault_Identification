@@ -1,8 +1,8 @@
-from .preprocessing.helpers import take, expand
 from . import preprocessing as pre
 from scipy.fftpack import dct
 from typing import Tuple
 import numpy as np
+
 
 def normalizeSpectrum(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array:
     """ Normalizes the amplitudes of a spectrum. 
@@ -23,6 +23,7 @@ def normalizeSpectrum(frequencies: np.array, amplitudes: np.array, axis: int) ->
 
     return amplitudes / np.sum(amplitudes * df, axis = axis, keepdims = True)
 
+
 def getMoments(x: np.array, y: np.array, moments: list, axis: int) -> np.array:
     """ Evaluates statistical moments of a matrix along an axis.
         Inputs:
@@ -39,13 +40,14 @@ def getMoments(x: np.array, y: np.array, moments: list, axis: int) -> np.array:
             Matrix of computed moments. Dimensions: x.ndims + 1. Last axes denotes the moments in ascending order.
     """
 
-    moments = expand(np.asarray(moments), x.ndim)
+    moments = pre.expand(np.asarray(moments), x.ndim)
 
     # Moments vector. Dimensions: x.ndims + 1. Dimensionality of last axis= moments.shape[0]
     dx  = np.diff(x, axis = axis, prepend = 0.0)
     out = (y[..., np.newaxis] * dx[..., np.newaxis] * x[..., np.newaxis] ** moments).sum(axis = axis)
 
     return out
+
 
 def shapeDescriptors(
     frequencies: np.array, amplitudes: np.array, axis: int, normalize: bool = True
@@ -65,7 +67,7 @@ def shapeDescriptors(
 
     # Expand dimensions of the frequency vector if needed
     if frequencies.ndim != amplitudes.ndim:
-        frequencies_ = expand(frequencies, amplitudes.ndim, axis = axis)
+        frequencies_ = pre.expand(frequencies, amplitudes.ndim, axis = axis)
     else:
         frequencies_ = frequencies
 
@@ -96,10 +98,8 @@ def slope(x: np.array, y: np.array, axis: int) -> np.array:
     """
 
     # Expand dimensions of the x vector if needed
-    if x.ndim != y.ndim: 
-        xEx = expand(x, y.ndim, axis = axis)
-    else:
-        xEx = x
+    if x.ndim != y.ndim: xEx = pre.expand(x, y.ndim, axis = axis)
+    else: xEx = x
 
     n  = y.shape[axis]                                  # Num. points
     x_ = xEx.sum(axis = axis, keepdims = True)          # i.e.: x
@@ -112,6 +112,7 @@ def slope(x: np.array, y: np.array, axis: int) -> np.array:
     s[n == 1] = y_[n == 1]  / x_[n == 1]  
 
     return s
+
 
 def decrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array:
     """ Computes the gradual decrease in spectral energy as the frequency 
@@ -126,7 +127,7 @@ def decrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array
 
     # Expand dimensions of the frequency vector if needed
     if frequencies.ndim != amplitudes.ndim:
-        frequencies_ = expand(frequencies, amplitudes.ndim, axis = axis)
+        frequencies_ = pre.expand(frequencies, amplitudes.ndim, axis = axis)
     else:
         frequencies_ = frequencies
 
@@ -135,6 +136,7 @@ def decrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array
     decrease = np.sum(dAmp / dFreq,  axis = axis)
 
     return decrease
+
 
 def rolloffFrequency(
     frequencies: np.array, amplitudes: np.array, axis: int, threshold: float = 0.95
@@ -153,7 +155,7 @@ def rolloffFrequency(
 
     # Expand dimensions of the frequency vector if needed
     if frequencies.ndim != amplitudes.ndim:
-        frequencies_ = expand(frequencies, amplitudes.ndim, axis = axis)
+        frequencies_ = pre.expand(frequencies, amplitudes.ndim, axis = axis)
     else:
         frequencies_ = frequencies
 
@@ -173,6 +175,7 @@ def rolloffFrequency(
 
     return np.squeeze(rolloffFrequency, axis = axis)
 
+
 def variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.array:
     """ Computes the spectral variation (also known as spectral flux), i.e.e the amount of 
         variation of the spectrum along time, as the normalized cross-correlation between two
@@ -187,13 +190,14 @@ def variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.arra
     """
 
     n     = amplitudes.shape[timeAxis]
-    amps0 = take(amplitudes, np.arange(0, n-1), timeAxis)
-    amps1 = take(amplitudes, np.arange(1, n), timeAxis)
+    amps0 = pre.take(amplitudes, np.arange(0, n-1), timeAxis)
+    amps1 = pre.take(amplitudes, np.arange(1, n), timeAxis)
     num   = (amps0 * amps1).sum(spectralAxis)
     denom = np.sqrt( (amps0 ** 2).sum(spectralAxis) * (amps1 ** 2).sum(spectralAxis) )
     var   = 1 - num / denom
 
     return var
+
 
 def mfcc(amplitudes: np.array, sampleFrequency: int, numCoefficients: int, numMelFilters: int, axis: int):
     """ Computes the Mel-frequency cepstral coefficients (MFCCs).
@@ -214,7 +218,7 @@ def mfcc(amplitudes: np.array, sampleFrequency: int, numCoefficients: int, numMe
 
     # Apply mid-ear filter on the input amplitudes
     _, weights = pre.filters.midEar(sampleFrequency, worN = amplitudes.shape[axis])
-    weights    = expand(weights, amplitudes.ndim, axis)
+    weights    = pre.expand(weights, amplitudes.ndim, axis)
     amps       = np.abs(amplitudes * weights)
     amps       = pre.amplitudeTodb(amps, reference = amps.min(axis = axis))
 
@@ -224,6 +228,6 @@ def mfcc(amplitudes: np.array, sampleFrequency: int, numCoefficients: int, numMe
     # cepstrum and MFCC
     melEnergydB = pre.powerTodb(melEnergy)
     cepstrum    = dct(melEnergydB, axis = axis, norm = "ortho")
-    mfcc        = take(cepstrum, np.arange(1, numCoefficients + 1), axis = axis)
+    mfcc        = pre.take(cepstrum, np.arange(1, numCoefficients + 1), axis = axis)
 
     return mfcc

@@ -4,7 +4,7 @@ import numpy as np
 from numpy.fft  import rfftfreq
 
 
-def hertz2bark(frequency: np.array) -> np.array:
+def _hertz2bark(frequency: np.array) -> np.array:
     """
     Convert a given frequency vector from Hertz to the Bark scale.
     Inputs:
@@ -14,7 +14,7 @@ def hertz2bark(frequency: np.array) -> np.array:
     """
     return 6 * np.arcsinh(frequency / 600)
 
-def bark2hertz(bark: np.array) -> np.array:
+def _bark2hertz(bark: np.array) -> np.array:
     """
     Convert a given frequency vector from Bark scale to Hertz.
     Inputs:
@@ -24,7 +24,7 @@ def bark2hertz(bark: np.array) -> np.array:
     """
     return 600 * np.sinh(bark / 6)
 
-def makeFilters(rangeVector: np.array, centersVector: np.array) -> np.array:
+def _makeFilters(rangeVector: np.array, centersVector: np.array) -> np.array:
     """ Returns a Bark filter bank across a frequency range and for various frequency vectors.
         Inputs:
             rangeVector   : Frequency vector for the filter design
@@ -71,7 +71,7 @@ def filterbank(
     """
 
     minFreq, maxFreq = 0, sampleFrequency // 2
-    minBark, maxBark = hertz2bark(minFreq), hertz2bark(maxFreq)
+    minBark, maxBark = _hertz2bark(minFreq), _hertz2bark(maxFreq)
 
     # uniformly spaced values on the Bark scale
     barkCenters = np.linspace(minBark, maxBark, numFilters)
@@ -80,11 +80,11 @@ def filterbank(
     frequencies = rfftfreq(numDFT, 1.0 / sampleFrequency)
 
     # Make Filter bank
-    fBank = makeFilters(hertz2bark(frequencies), barkCenters)
+    fBank = _makeFilters(_hertz2bark(frequencies), barkCenters)
 
     # Normalize
     if normalize:
-        barkBins   = bark2hertz(np.linspace(minBark, maxBark, numFilters+2))
+        barkBins   = _bark2hertz(np.linspace(minBark, maxBark, numFilters+2))
         energyNorm = 2.0 / (barkBins[2 : numFilters+2] - barkBins[:numFilters])
         fBank     *= energyNorm[np.newaxis, :]
 

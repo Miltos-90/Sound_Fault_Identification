@@ -2,7 +2,7 @@ import numpy as np
 from typing import Union
 
 
-# BELOW NOT USED YET
+""" BELOW NOT USED YET """
 
 def rms(x: np.array, axis: int) -> np.array:
     """ Evaluates the root-mean-square (RMS) value of a signal along an axis. 

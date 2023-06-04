@@ -1,7 +1,7 @@
 """ This module contains all functions that extract the instantaneous temporal features of a sound signal. """
 
 import numpy as np
-from .preprocessing.helpers import take
+from .preprocessing import take
 
 def makeEinsumNotation(numDims: int, axis: int) -> str:
     """ Generates the einsum notation for the inner product of

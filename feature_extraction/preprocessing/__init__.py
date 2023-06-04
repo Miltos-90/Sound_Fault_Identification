@@ -14,4 +14,5 @@ from . import spectra
 from .array          import chunk, detrend
 from .spectra        import amplitudeTodb, powerTodb
 from .harmonic_model import harmonicModel
-from .scales.helpers import energy as criticalBandEnergy
+from .scales         import energy as criticalBandEnergy
+from .helpers        import take, expand, extract
