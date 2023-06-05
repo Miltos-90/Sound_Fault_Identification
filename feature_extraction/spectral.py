@@ -199,13 +199,15 @@ def variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.arra
     return var
 
 
-def mfcc(amplitudes: np.array, sampleFrequency: int, numCoefficients: int, numMelFilters: int, axis: int):
+def mfcc(
+    amplitudes: np.array, sampleFrequency: int, numCoefficients: int, 
+    numMelFilters: int, axis: int) -> np.array:
     """ Computes the Mel-frequency cepstral coefficients (MFCCs).
         Inputs:
             amplitudes     : Matrix of complex FFT amplitudes (arbitrary dimensions)
             sampleFrequency: Sampling frequency of the signal
-            numCoefficients: Number of coefficients to evaluate. Note that the first coefficient, being
-                              directly proportional to the energy is not returned.
+            numCoefficients: Number of coefficients to evaluate. Note that the first coefficient, 
+                             being directly proportional to the energy is not returned.
             numMelFilters  : Number of Mel filters to be used for the conversion to Mel scale.
             axis           : Axis along which to compute the MFCCs
         Outputs:
@@ -223,7 +225,8 @@ def mfcc(amplitudes: np.array, sampleFrequency: int, numCoefficients: int, numMe
     amps       = pre.amplitudeTodb(amps, reference = amps.min(axis = axis))
 
     # Mel band conversion
-    melEnergy  = pre.criticalBandEnergy(amps, sampleFrequency, numFilters = numMelFilters, scale = 'mel', axis = axis)
+    melEnergy  = pre.scales.spectrogram(amps, sampleFrequency, 
+        numFilters = numMelFilters, scale = 'mel', axis = axis)
 
     # cepstrum and MFCC
     melEnergydB = pre.powerTodb(melEnergy)

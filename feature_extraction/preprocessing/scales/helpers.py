@@ -71,9 +71,9 @@ def _makeEinsumNotation(matrix1Dims: int, matrix2Dims: int, axis: int) -> str:
 
     return notation
 
-def energy(
+def spectrogram(
     amplitudes: np.array, sampleFrequency: int, numFilters: int, scale: Literal["mel", "bark"], axis: int) -> np.array:
-    """ Computes the critical band energy in the Mel scale.
+    """ Computes the band energies in the Mel/Bark scales.
         Inputs:
             amplitudes     : Matrix of the amplitudes of the power spectrum
                 NOTE: DIMS can be any arbitrary number of dimensions, so long as the input axis <axis>
@@ -83,7 +83,7 @@ def energy(
             scake          : Scale to be used
             axis           : Axis along which to compute the critical energy
         Outputs:
-            Critical energy of the Mel bands [DIMS]. 
+            Critical energy of the Mel/Bark bands [DIMS]. 
                 Dimensions are exactly the same as the dimensions of the input <amplitudes> matrix, with the
                 exception of the axis <axis>. The latter will contain <numBands> elements instead of
                 <Num. frequencies> elements.

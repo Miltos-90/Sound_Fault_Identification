@@ -16,6 +16,34 @@ def energy(x: np.array, axis: int) -> np.array:
     return np.abs(x ** 2).sum(axis = axis)
 
 
+def _truncate(x1: np.array, y1: np.array, x2: np.array, y2: np.array, axis: int
+    ) -> Tuple[np.array, np.array, np.array, np.array]:
+    """ Aligns the dimensions of two matrix (x, y) pairs by truncating the longest pair.
+        Inputs:
+            x1, y1: First pair of matrices
+            x2, y2: Second pair of matrices
+            axis: Axis along which the pairs will be dimension-aligned
+        Outputs
+            x1_, y1_, x2_, y2_: Dimension-aligned patrix pairs. Their dimensions equal the
+            dimensions of the input matrices, with the exception of axis <axis>. This will
+            have a number of elements that equals the lowest number of elements 
+    """
+
+    n1, n2 = x1.shape[axis], x2.shape[axis]
+    cut    = lambda arr, num: pre.take(arr, indices = np.arange(num), axis = axis)
+
+    if n2 < n1: # Pair 2 has fewer elements than pair 1 along axis <axis>
+        x1_, y1_ = cut(x1, n2), cut(y1, n2)
+        x2_, y2_ = x2, y2
+    elif n1 < n2: # Pair 1 has fewer elements than pair 2
+        x2_, y2_ = cut(x2, n1), cut(y2, n1)
+        x1_, y1_ = x1, y1
+    else: # Already aligned. Nothing to do
+        x1_, y1_, x2_, y2_ = x1, y1, x2, y2
+    
+    return x1_, y1_, x2_, y2_
+        
+
 def inharmonicity(
     harmonicFrequencies: np.array, harmonicAmplitudes: np.array, peakFrequencies: np.array, 
     peakAmplitudes: np.array, axis: int) -> np.array:
@@ -34,8 +62,14 @@ def inharmonicity(
             <axis> having been removed.
 
     """
-    ind      = np.arange(harmonicFrequencies.shape[axis])
-    harmNums = pre.expand(ind, harmonicFrequencies.ndim, axis)
+            
+    harmonicFrequencies, harmonicAmplitudes, peakFrequencies, peakAmplitudes = \
+        _truncate(axis = axis,
+            x1 = harmonicFrequencies, y1 = harmonicAmplitudes, 
+            x2 = peakFrequencies,     y2 = peakAmplitudes)
+    
+    n        = harmonicFrequencies.shape[axis]
+    harmNums = pre.expand(np.arange(n), harmonicFrequencies.ndim, axis)
     
     # Compute coefficient
     # If less than numHarmonics peaks have been found, the matrix is filled with zeroes. 
