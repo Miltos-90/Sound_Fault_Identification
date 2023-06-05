@@ -5,7 +5,6 @@ from .helpers import expand
 from typing import Tuple
 import numpy as np
 
-
 def _windowCorrectionFactors(windowSignal: np.array) -> Tuple[float, float]:
     """ Computes the amplitude and energy correction factors for a window signal according to [1]. 
         (agrees with the values reported in [2] for various windows.)

@@ -222,8 +222,7 @@ def mfcc(
     _, weights = pre.filters.midEar(sampleFrequency, worN = amplitudes.shape[axis])
     weights    = pre.expand(weights, amplitudes.ndim, axis)
     amps       = np.abs(amplitudes * weights)
-    amps       = pre.amplitudeTodb(amps, reference = amps.min(axis = axis))
-
+    
     # Mel band conversion
     melEnergy  = pre.scales.spectrogram(amps, sampleFrequency, 
         numFilters = numMelFilters, scale = 'mel', axis = axis)
