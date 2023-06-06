@@ -129,3 +129,29 @@ def midEar(sampleFrequency: int, plot: bool = False, **kwargs) -> Tuple[np.array
 
     return w, h
 
+def Aweighting(frequencies: np.array, dbMin: float = None) -> np.array:
+    """ 
+    Computes the A-weighting (https://en.wikipedia.org/wiki/A-weighting) of a set of frequencies.
+    Inputs:
+        frequencies : One or more frequencies ot be converted [Hz]
+        dbMin       : Clip weights below this threshold [dB]. If set to None, no clipping is performed.
+    Outputs:
+        weights     : Weighting matrix  [dB]
+
+    This implementation is taken from the excellent librosa library:
+        https://github.com/librosa/librosa/blob/main/librosa/core/convert.py#L1847
+    """
+
+    fSquare = np.asanyarray(frequencies) ** 2
+    const   = np.array( [12194.217, 20.598997, 107.65265, 737.86223] ) ** 2
+    weights = np.array(2.0 + 20.0 * (
+        np.log10(const[0])
+        + 2 * np.log10(fSquare)
+        - np.log10(fSquare + const[0])
+        - np.log10(fSquare + const[1])
+        - 0.5 * np.log10(fSquare + const[2])
+        - 0.5 * np.log10(fSquare + const[3])
+    ))
+
+    if dbMin is None: return weights
+    else: return np.maximum(min_db, weights)

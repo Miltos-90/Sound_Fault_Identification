@@ -1,9 +1,8 @@
-""" This module contains all functions that extract the harmonic features of a sound signal. """
+""" This module contains all functions that extract the harmonic features of the sound signals. """
 
 import numpy as np
 from typing import Tuple
 from . import preprocessing as pre
-
 
 def energy(x: np.array, axis: int) -> np.array:
     """ Evaluates the energies of the signals contained in an axis of the input matrix in the frequency domain. 

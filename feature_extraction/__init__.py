@@ -9,4 +9,4 @@ URL: http://recherche.ircam.fr/anasyn/peeters/ARTICLES/Peeters_2003_cuidadoaudio
 """
 
 from . import preprocessing as pre
-from . import temporal, spectral, harmonic
+from . import temporal, spectral, harmonic, perceptual

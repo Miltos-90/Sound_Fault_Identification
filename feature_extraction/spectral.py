@@ -1,3 +1,5 @@
+""" This module contains all functions that extract the spectral features of the sound signals. """
+
 from . import preprocessing as pre
 from scipy.fftpack import dct
 from typing import Tuple
