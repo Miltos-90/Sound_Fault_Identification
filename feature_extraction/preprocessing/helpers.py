@@ -27,7 +27,7 @@ def extract(x: np.array, y: np.array, xq: np.array, axis: int) -> np.array:
     # Match/expand dimensions of the x vector to allow for vectorized
     # searching.
     x_ = _vectorToMatrix(x, numDims = y.ndim, axis = axis)
-    yq = np.empty_like(xq)
+    yq = np.empty_like(xq, dtype = y.dtype)
 
     # Get corresponding eleents of the y matrix
     for h in range(xq.shape[axis]):
@@ -154,7 +154,7 @@ def removeSubharmonics(frequencies: np.array, subLimit: float, axis: int
     """
     
     medianDiff   = _medianFrequencyDiff(frequencies, axis)
-    harmonicNums = np.round(frequencies / medianDiff)
+    harmonicNums = np.round(frequencies / medianDiff.astype(float))
     sAxes        = tuple([ax for ax in range(frequencies.ndim) if ax != axis])
     subharms     = np.where(~(harmonicNums < subLimit).all(axis = sAxes))[0]
 

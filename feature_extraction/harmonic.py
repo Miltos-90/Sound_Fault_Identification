@@ -59,13 +59,12 @@ def inharmonicity(
         Outputs:
             Array of inharmonicity coefficients. The dimensions match the input dimensions, with axis
             <axis> having been removed.
-
     """
-            
-    harmonicFrequencies, harmonicAmplitudes, peakFrequencies, peakAmplitudes = \
+    peakFrequencies_ = peakFrequencies.astype(float)
+    harmonicFrequencies, harmonicAmplitudes, peakFrequencies_, peakAmplitudes = \
         _truncate(axis = axis,
             x1 = harmonicFrequencies, y1 = harmonicAmplitudes, 
-            x2 = peakFrequencies,     y2 = peakAmplitudes)
+            x2 = peakFrequencies_,     y2 = peakAmplitudes)
     
     n        = harmonicFrequencies.shape[axis]
     harmNums = pre.expand(np.arange(n), harmonicFrequencies.ndim, axis)
@@ -73,10 +72,10 @@ def inharmonicity(
     # Compute coefficient
     # If less than numHarmonics peaks have been found, the matrix is filled with zeroes. 
     # Convert those to nans so that they will be ignored by nansum()
-    peakFrequencies[peakFrequencies == 0] = np.nan 
+    peakFrequencies_[peakFrequencies_ == 0] = np.nan 
     fundamentalFrequencies = pre.take(harmonicFrequencies, [0], axis = axis)
 
-    t   = np.abs( peakFrequencies - harmNums * fundamentalFrequencies ) * harmonicAmplitudes ** 2
+    t   = np.abs( peakFrequencies_ - harmNums * fundamentalFrequencies ) * harmonicAmplitudes ** 2
     num = np.nansum(t, axis = axis)
     den = np.nansum(harmonicAmplitudes ** 2, axis = axis)
     out = num / den * 2 / fundamentalFrequencies

@@ -51,9 +51,8 @@ def _getMoments(x: np.array, y: np.array, moments: list, axis: int) -> np.array:
     return out
 
 
-def shapeDescriptors(
-    frequencies: np.array, amplitudes: np.array, axis: int, normalize: bool = True
-    ) -> Tuple[np.array, np.array, np.array, np.array]:
+def shapeDescriptors(frequencies: np.array, amplitudes: np.array, axis: int, 
+    normalize: bool = True) -> Tuple[np.array, np.array, np.array, np.array]:
     """ Computes several descriptors of the spectral shape.
         Inputs:
             frequencies: Vector containing the frequencies corresponding to the spectral amplitudes.
@@ -140,9 +139,8 @@ def decrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array
     return decrease
 
 
-def rolloffFrequency(
-    frequencies: np.array, amplitudes: np.array, axis: int, threshold: float = 0.95
-    ) -> np.array:
+def rolloffFrequency(frequencies: np.array, amplitudes: np.array, axis: int, 
+    threshold: float = 0.95) -> np.array:
     """ Computes the spectral roll-off point, i.e. the frequency so that 95% of the
         signal energy is contained below this frequency.
         Inputs:
@@ -235,3 +233,28 @@ def mfcc(
     mfcc        = pre.take(cepstrum, np.arange(1, numCoefficients + 1), axis = axis)
 
     return mfcc
+
+
+def bandwidth(frequencies: np.array, amplitudes: np.array, centroid: np.array, 
+    order: int, axis: int) -> np.array:
+    """ Computes the spectral bandwidth from the spectral amplitudes.
+        Inputs: 
+            amplitudes : Matrix of power amplitudes (arbitrary dimensions)
+            frequencies: Vector containing the frequencies corresponding
+                         to the spectral amplitudes [Hz]
+            centroid   : Spectral centroid [Hz]
+            order      : Bandwidth order
+            axis       : Axis along which to compute the bandwidth
+        Outputs:
+            bwidth: Array of spectral bandwidth
+    """
+
+    if frequencies.ndim != amplitudes.ndim:
+        frequencies_ = pre.expand(frequencies, centroid.ndim)
+    else:
+        frequencies_ = frequencies
+
+    deltaf = np.abs(frequencies_ - centroid[..., np.newaxis]).swapaxes(-1, axis)
+    bwidth = (amplitudes * deltaf ** order).sum(axis = axis) ** (1.0 / order)
+
+    return bwidth

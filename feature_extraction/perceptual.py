@@ -1,12 +1,12 @@
 """ This module contains all functions that extract the perceptual features of the sound signals. """
 
 import numpy as np
-from typing import Literal, Tuple
+from typing import Literal
 from . import preprocessing as pre
 
 def loudness(
-    amplitudes: np.array, frequencies: np.array, sampleFrequency: int, scale: Literal["mel", "bark"], 
-    numFilters: int, scaleAxis: int, timeAxis: int) -> Tuple[np.array, np.array]:
+    amplitudes: np.array, frequencies: np.array, sampleFrequency: int, 
+    scale: Literal["mel", "bark"], numFilters: int, axis: int) -> np.array:
     """ Computes the per-frame perceptual loudness (weighted power) [dB].
     Inputs:
         amplitudes      : Power amplitudes array
@@ -14,12 +14,11 @@ def loudness(
         sampleFrequency : Sampling rate [Hz]
         scale           : Scale to be used for the loudness (Mel or Bark)
         numFilters      : Number of filters (bins) for the Mel/Bark scale
-        scaleAxis       : Frequency axis of the amplitudes array
-        timeAxis        : Time frame axis of the amplitudes array
+        axis            : Frequency axis of the amplitudes array
     Outputs:
-        specificLoudness: Perceptual loudness per Bark band [power amps]. It's dimensions 
-                          match the dimensions of the amplitudes array, with the spectral axis removed.
-        totalLoudness   : Loudness summed over all Bark bands [power amps]
+        loudness: Perceptual loudness per Bark band [power amps]. It's dimensions 
+                          match the dimensions of the amplitudes array, wwith the exception
+                          of axis <axis> which contains <numFilters> elements.
     References:
         Code adapted from: https://github.com/librosa/librosa/issues/463
     """
@@ -27,19 +26,13 @@ def loudness(
     # A-weighting
     weighting = pre.filters.Aweighting(frequencies)  # Weighting matrix [dB]
     weighting = 10 ** (weighting / 10)               # Conversion to apply on the power amplitudes
-    weighting = pre.expand(weighting, numDims = amplitudes.ndim, axis = scaleAxis)
+    weighting = pre.expand(weighting, numDims = amplitudes.ndim, axis = axis)
 
     # Compute perceptually weighted power spectrogram
     spectrum  = pre.scales.spectrogram(amplitudes * weighting, sampleFrequency,
-        numFilters = numFilters, scale = scale, axis = scaleAxis)
+        numFilters = numFilters, scale = scale, axis = axis)
 
-    # Compute specific loudness (loudness amplitude associated with each Bark band)
-    specificLoudness = np.mean(spectrum, axis = timeAxis, keepdims = True) # Average over all frames
-
-    # Compute total loudness (sum of all Bark bands)
-    totalLoudness = np.sum(specificLoudness, axis = scaleAxis, keepdims = True)
-
-    return specificLoudness, totalLoudness
+    return spectrum
 
 
 def sharpness(loudness: np.array, axis: int) -> np.array:
