@@ -12,7 +12,7 @@ def energy(x: np.array, axis: int) -> np.array:
     Outputs: 
         Energies of the signals along the requested axis
     """
-    return np.abs(x ** 2).sum(axis = axis)
+    return np.abs(x ** 2).sum(axis = axis, keepdims = True)
 
 
 def _truncate(x1: np.array, y1: np.array, x2: np.array, y2: np.array, axis: int
@@ -69,15 +69,15 @@ def inharmonicity(
     n        = harmonicFrequencies.shape[axis]
     harmNums = pre.expand(np.arange(n), harmonicFrequencies.ndim, axis)
     
-    # Compute coefficient
     # If less than numHarmonics peaks have been found, the matrix is filled with zeroes. 
-    # Convert those to nans so that they will be ignored by nansum()
+    # Convert those to nans so that they will be ignored by nansum() downstream
     peakFrequencies_[peakFrequencies_ == 0] = np.nan 
     fundamentalFrequencies = pre.take(harmonicFrequencies, [0], axis = axis)
 
+    # Compute coefficient
     t   = np.abs( peakFrequencies_ - harmNums * fundamentalFrequencies ) * harmonicAmplitudes ** 2
-    num = np.nansum(t, axis = axis)
-    den = np.nansum(harmonicAmplitudes ** 2, axis = axis)
+    num = np.nansum(t, axis = axis, keepdims = True)
+    den = np.nansum(harmonicAmplitudes ** 2, axis = axis, keepdims = True)
     out = num / den * 2 / fundamentalFrequencies
 
     return out
@@ -117,27 +117,33 @@ def oddToEvenEnergyRatio(amplitudes: np.array, axis: int) -> np.array:
     numSample = amplitudes.shape[axis]
     oddHarms  = pre.take(harmAmps2, np.arange(1, numSample, 2), axis)
     evenHarms = pre.take(harmAmps2, np.arange(0, numSample - 1, 2), axis)
-    oer       = np.sum(oddHarms, axis = axis) / np.sum(evenHarms, axis = axis)
+
+    num = np.sum(oddHarms, axis = axis, keepdims = True)
+    den = np.sum(evenHarms, axis = axis, keepdims = True)
+    oer =  num / den
 
     return oer
 
 
-def tristimulus(amplitudes: np.array, axis: int) -> Tuple[np.array, np.array, np.array]:
+def tristimulus(amplitudes: np.array, axis: int) -> np.array:
     """ Computes the tristimulus.
         Inputs: 
             amplitudes: Array containing amplitudes, of arbitrary dimensions.
             axis: Axis along which the computations will be performed
         Outputs:
-            t1, t2, t3: Tristimulus coefficients. Their dimensions equal the dimensions of the
-            input amplitudes, with axis <axis> removed.
+            out: Tristimulus coefficients. Their dimensions equal the dimensions of the
+                input amplitudes, with axis <axis> containing only 3 elements (= first, 
+                second, and third coefficients)
     """
 
-    s  =  amplitudes.sum(axis)
-    t1 = pre.take(amplitudes, 1, axis) / s
-    t2 = pre.take(amplitudes, np.arange(2, 5), axis).sum(axis) / s
-    t3 = pre.take(amplitudes, np.arange(5, amplitudes.shape[axis]), axis).sum(axis) / s
+    s   =  amplitudes.sum(axis)
+    out = np.stack([
+        pre.take(amplitudes, 1, axis) / s,                                             # t1
+        pre.take(amplitudes, np.arange(2, 5), axis).sum(axis) / s,                     # t2
+        pre.take(amplitudes, np.arange(5, amplitudes.shape[axis]), axis).sum(axis) / s # t3
+    ], axis = axis)
 
-    return t1, t2, t3
+    return out
 
 
 def deviation(
@@ -159,6 +165,6 @@ def deviation(
     f0   = pre.take(harmonicFrequencies, [0], axis = axis) # Extract fundamental frequency
     env  = pre.envelopes.spectral(amplitudes, sampleFrequency, fundamentalFrequency = f0, axis = axis)
     amps = pre.extract(frequencies, env, harmonicFrequencies, axis = axis)
-    dev  = np.abs(np.sum(harmonicAmplitudes - amps, axis = axis)) / harmonicAmplitudes.shape[axis]
+    dev  = np.abs(np.sum(harmonicAmplitudes - amps, axis = axis, keepdims = True)) / harmonicAmplitudes.shape[axis]
 
     return dev

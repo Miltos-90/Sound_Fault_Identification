@@ -109,4 +109,4 @@ def zeroCrossingRate(x: np.array, axis: int) -> np.array:
         Matrix with the same dimensions as <x> excluding the <axis> dimension.
     """
 
-    return np.sum(np.diff(np.sign(x) >= 0, axis = axis), axis = axis)
+    return np.sum(np.diff(np.sign(x) >= 0, axis = axis), axis = axis, keepdims = True)
