@@ -5,12 +5,12 @@ from typing import Literal
 from . import preprocessing as pre
 
 def loudness(
-    amplitudes: np.array, frequencies: np.array, sampleFrequency: int, 
+    frequencies: np.array, amplitudes: np.array, sampleFrequency: int, 
     scale: Literal["mel", "bark"], numFilters: int, axis: int) -> np.array:
     """ Computes the per-frame perceptual loudness (weighted power) [dB].
     Inputs:
-        amplitudes      : Power amplitudes array
         frequencies     : Corresponding frequency vector for the amplitudes array
+        amplitudes      : Power amplitudes array
         sampleFrequency : Sampling rate [Hz]
         scale           : Scale to be used for the loudness (Mel or Bark)
         numFilters      : Number of filters (bins) for the Mel/Bark scale
@@ -58,9 +58,9 @@ def sharpness(loudness: np.array, axis: int) -> np.array:
     bandNum  = pre.expand(np.arange(numBands), numDims = ndim, axis = axis)
 
     # Compute sharpness
-    dum   = np.sum(loudness * gain * bandNum, axis = axis)
+    num   = np.sum(loudness * gain * bandNum, axis = axis, keepdims = True)
     den   = np.sum(loudness, axis = axis, keepdims = True)
-    sharp = 0.11 *  dum / den
+    sharp = 0.11 *  num / den
 
     return sharp
 
@@ -76,4 +76,6 @@ def spread(specificLoudness: np.array, totalLoudness: np.array, axis: int) -> np
                 input arrays, with axis <axis> removed.
     """
 
-    return np.square( (totalLoudness - specificLoudness.max(axis = axis) ) / totalLoudness )
+    maxLoudness = specificLoudness.max(axis = axis, keepdims = True) 
+    return np.square( (totalLoudness - maxLoudness ) / totalLoudness )
+
