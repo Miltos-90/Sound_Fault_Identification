@@ -2,7 +2,6 @@
 
 from . import preprocessing as pre
 from scipy.fftpack import dct
-from typing import Tuple
 import numpy as np
 
 
@@ -46,13 +45,13 @@ def _getMoments(x: np.array, y: np.array, moments: list, axis: int) -> np.array:
 
     # Moments vector. Dimensions: x.ndims + 1. Dimensionality of last axis= moments.shape[0]
     dx  = np.diff(x, axis = axis, prepend = 0.0)
-    out = (y[..., np.newaxis] * dx[..., np.newaxis] * x[..., np.newaxis] ** moments).sum(axis = axis)
+    out = (y[..., np.newaxis] * dx[..., np.newaxis] * x[..., np.newaxis] ** moments).sum(axis = axis, keepdims = True)
 
     return out
 
 
 def shapeDescriptors(frequencies: np.array, amplitudes: np.array, axis: int, 
-    normalize: bool = True) -> Tuple[np.array, np.array, np.array, np.array]:
+    normalize: bool = True) -> np.array:
     """ Computes several descriptors of the spectral shape.
         Inputs:
             frequencies: Vector containing the frequencies corresponding to the spectral amplitudes.
@@ -60,10 +59,13 @@ def shapeDescriptors(frequencies: np.array, amplitudes: np.array, axis: int,
             axis       : Axis along which to compute the spectral descriptors
             normalize  : Boolean indicating if the spectrum should be normalized.
         Outputs:
-            Centroid  : The barycenter of the spectrum
-            Spread    : Spread of the spectrum around the mean value
-            Skewness  : Asymmetry of the spectrum
-            Kurtosis  : Flatness of the spectrum
+            Array containing the following shape descriptors:
+                (1) Centroid  : The barycenter of the spectrum
+                (2) Spread    : Spread of the spectrum around the mean value
+                (3) Skewness  : Asymmetry of the spectrum
+                (4) Kurtosis  : Flatness of the spectrum
+            The dimensions of the output array match the dimensions of the input amplitudes array
+            with the exception of axis <axis> which contains 4 elements (=the above 4 spectral shape descriptors)
     """
 
     # Expand dimensions of the frequency vector if needed
@@ -78,13 +80,18 @@ def shapeDescriptors(frequencies: np.array, amplitudes: np.array, axis: int,
     # Get required spectral moments
     moments = _getMoments(frequencies_, amplitudes, moments = list(range(5)), axis = axis)
 
-    # Compute the quantities that describe the spectral shape
     centroid = moments[..., 1] / moments[..., 0]
-    spread   = np.sqrt(moments[..., 2] / moments[..., 0] - centroid ** 2)
-    skewness = moments[..., 3] / moments[..., 2] ** (3/2)
-    kurtosis = moments[..., 4] / moments[..., 2] ** 2
-
-    return centroid, spread, skewness, kurtosis
+    # Compute the quantities that describe the spectral shape
+    out = np.concatenate(
+        [
+            centroid,                                                   # spectral centroid
+            np.sqrt(moments[..., 2] / moments[..., 0] - centroid ** 2), # spectral spread
+            moments[..., 3] / moments[..., 2] ** (3/2),                 # spectral skewness
+            moments[..., 4] / moments[..., 2] ** 2                      # spectral kurtosis
+        ],
+        axis = axis
+    )
+    return out
 
 
 def slope(x: np.array, y: np.array, axis: int) -> np.array:
@@ -134,7 +141,7 @@ def decrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array
 
     dFreq    = np.diff(frequencies_, axis = axis)
     dAmp     = np.diff(amplitudes,   axis = axis)
-    decrease = np.sum(dAmp / dFreq,  axis = axis)
+    decrease = np.sum(dAmp / dFreq,  axis = axis, keepdims = True)
 
     return decrease
 
@@ -173,7 +180,7 @@ def rolloffFrequency(frequencies: np.array, amplitudes: np.array, axis: int,
     # Get roll-off frequency
     rolloffFrequency = np.take_along_axis(frequencies_, ix, axis = axis)
 
-    return np.squeeze(rolloffFrequency, axis = axis)
+    return rolloffFrequency
 
 
 def variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.array:
@@ -190,13 +197,28 @@ def variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.arra
     """
 
     n     = amplitudes.shape[timeAxis]
-    amps0 = pre.take(amplitudes, np.arange(0, n-1), timeAxis)
+    amps0 = pre.take(amplitudes, np.arange(0, n - 1), timeAxis)
     amps1 = pre.take(amplitudes, np.arange(1, n), timeAxis)
-    num   = (amps0 * amps1).sum(spectralAxis)
-    denom = np.sqrt( (amps0 ** 2).sum(spectralAxis) * (amps1 ** 2).sum(spectralAxis) )
-    var   = 1 - num / denom
 
-    return var
+    num   = (amps0 * amps1).sum(spectralAxis, keepdims = True)
+    denom = np.sqrt( (amps0 ** 2).sum(spectralAxis, keepdims = True) \
+            * (amps1 ** 2).sum(spectralAxis, keepdims = True) )
+
+    # Pre-allocate output matrix
+    outShape = list(amplitudes.shape)
+    outShape[spectralAxis] = 1
+    out      = np.zeros(outShape, dtype = float)
+
+    # Fill it with the coefficient
+    ind = pre.expand(np.arange(1, out.shape[timeAxis]), numDims = out.ndim, axis = timeAxis)
+    np.put_along_axis(
+        arr     = out,
+        indices = ind,
+        values  = 1.0 - num / denom,
+        axis    = timeAxis
+    )
+
+    return out
 
 
 def mfcc(
@@ -233,28 +255,3 @@ def mfcc(
     mfcc        = pre.take(cepstrum, np.arange(1, numCoefficients + 1), axis = axis)
 
     return mfcc
-
-
-def bandwidth(frequencies: np.array, amplitudes: np.array, centroid: np.array, 
-    order: int, axis: int) -> np.array:
-    """ Computes the spectral bandwidth from the spectral amplitudes.
-        Inputs: 
-            amplitudes : Matrix of power amplitudes (arbitrary dimensions)
-            frequencies: Vector containing the frequencies corresponding
-                         to the spectral amplitudes [Hz]
-            centroid   : Spectral centroid [Hz]
-            order      : Bandwidth order
-            axis       : Axis along which to compute the bandwidth
-        Outputs:
-            bwidth: Array of spectral bandwidth
-    """
-
-    if frequencies.ndim != amplitudes.ndim:
-        frequencies_ = pre.expand(frequencies, centroid.ndim)
-    else:
-        frequencies_ = frequencies
-
-    deltaf = np.abs(frequencies_ - centroid[..., np.newaxis]).swapaxes(-1, axis)
-    bwidth = (amplitudes * deltaf ** order).sum(axis = axis) ** (1.0 / order)
-
-    return bwidth
