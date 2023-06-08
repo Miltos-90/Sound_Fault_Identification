@@ -6,7 +6,7 @@ import pandas as pd
 from scipy.io import wavfile
 
 
-def makeIndex(filePath: str):
+def indexFiles(filePath: str):
     """ Indexes all files and extracts some metadata and the target. """
 
     data = list()
