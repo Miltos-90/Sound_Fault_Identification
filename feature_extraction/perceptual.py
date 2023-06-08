@@ -4,6 +4,31 @@ import numpy as np
 from typing import Literal
 from . import preprocessing as pre
 
+
+def features(loudness: np.array, timeAxis: int, spectralAxis: int) -> np.array:
+    """ Extracts some spectral features in the frequency-domain from an array of signals.
+        Inputs:
+            loudness    : Array of specific loudness (i.e.e loudness associated with each Bark band).
+            timeAxis    : Axis along which the amplitudes are arranged over time (time frame/window-axis).
+            spectralAxis: Axis along which the amplitudes are arranged over frequency (frequency-axis).
+        Outputs:
+            features: Array of features extracted in the time-domain. The output array
+                      has the same dimensions as the input signal array, with the exception of
+                      axis <scaleAxis>, which contains 27 elements (i.e. features).
+    """
+
+    totalLoudness = np.sum(loudness, axis = spectralAxis, keepdims = True)
+    relLoudness   = loudness / totalLoudness     # Relative specific loudness
+    sharp         = _sharpness(loudness, axis = spectralAxis)
+    spread        = _spread(loudness, totalLoudness, axis = spectralAxis)
+    totalLoudness = pre.powerTodb(totalLoudness) # Convert from power amplitudes to dB
+
+    # Make output array
+    out = np.concatenate([totalLoudness, relLoudness, sharp, spread], axis = spectralAxis)
+
+    return out
+
+
 def loudness(
     frequencies: np.array, amplitudes: np.array, sampleFrequency: int, 
     scale: Literal["mel", "bark"], numFilters: int, axis: int) -> np.array:
@@ -35,7 +60,7 @@ def loudness(
     return spectrum
 
 
-def sharpness(loudness: np.array, axis: int) -> np.array:
+def _sharpness(loudness: np.array, axis: int) -> np.array:
     """ Computes acoustic sharpness using the specific loudness of the bark bands.
         Inputs:
             loudness : Array of (specific) loudness of the signals.
@@ -65,7 +90,7 @@ def sharpness(loudness: np.array, axis: int) -> np.array:
     return sharp
 
 
-def spread(specificLoudness: np.array, totalLoudness: np.array, axis: int) -> np.array:
+def _spread(specificLoudness: np.array, totalLoudness: np.array, axis: int) -> np.array:
     """ Computes spectral spread, i.e.e the distance between the largest specific loudness
         value to the total loudness.
         Inputs:

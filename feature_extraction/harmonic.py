@@ -4,7 +4,45 @@ import numpy as np
 from typing import Tuple
 from . import preprocessing as pre
 
-def energy(x: np.array, axis: int) -> np.array:
+
+def features(
+    frequencies        : np.array, amplitudes        : np.array, 
+    harmonicFrequencies: np.array, harmonicAmplitudes: np.array, 
+    peakFrequencies    : np.array, peakAmplitudes    : np.array, 
+    sampleFrequency: int, numHarmonics: int, axis: int) -> np.array:
+    """ Extracts all harmonic features in the frequency-domain from an array of signals.
+        Inputs:
+            frequencies         : Frequency vector at which the amplitudes have been computed.
+            amplitudes          : Array of spectral amplitudes.
+            harmonicFrequencies : Array of harmonic frequencies.
+            harmonicAmplitudes  : Array of harmonic amplitudes.
+            peakFrequencies     : Array of peak frequencies.
+            peakAmplitudes      : Array of peak amplitudes.
+            sampleFrequency     : Sampling rate in Hertz.
+            numHarmonics        : Number of harmonic frequencies to be extracted.
+            axis                : Axis along which the amplitudes are arranged over frequencies.
+        Outputs:
+            features: Array of features extracted in the time-domain. The output array
+                      has the same dimensions as the input signal array, with the exception of
+                      axis <axis>, which contains 8 elements (i.e. features).
+    """
+
+    features = np.concatenate(
+        [
+            _deviation(frequencies, amplitudes, harmonicFrequencies, harmonicAmplitudes, sampleFrequency, axis),
+            _inharmonicity(harmonicFrequencies, harmonicAmplitudes,  peakFrequencies, peakAmplitudes, axis),
+            _noisiness(amplitudes, harmonicAmplitudes, axis),
+            _oddToEvenEnergyRatio( harmonicAmplitudes, axis),
+            _tristimulus(harmonicAmplitudes,   axis = axis),
+            pre.take(harmonicFrequencies, [0], axis = axis) # 1st harmonic frequency = fundamental frequency
+        ],
+        axis = axis
+    )
+
+    return features
+
+
+def _energy(x: np.array, axis: int) -> np.array:
     """ Evaluates the energies of the signals contained in an axis of the input matrix in the frequency domain. 
     Inputs:
         x   : Matrix containing the spectral amplitudes along one dimension
@@ -43,7 +81,7 @@ def _truncate(x1: np.array, y1: np.array, x2: np.array, y2: np.array, axis: int
     return x1_, y1_, x2_, y2_
         
 
-def inharmonicity(
+def _inharmonicity(
     harmonicFrequencies: np.array, harmonicAmplitudes: np.array, peakFrequencies: np.array, 
     peakAmplitudes: np.array, axis: int) -> np.array:
     """ Computes a signal's inharmonicity, i.e. the divergence of the signal's spectral components
@@ -83,7 +121,7 @@ def inharmonicity(
     return out
 
 
-def noisiness(powerAmplitudes: np.array, harmonicAmplitudes: np.array, axis: int) -> np.array:
+def _noisiness(powerAmplitudes: np.array, harmonicAmplitudes: np.array, axis: int) -> np.array:
     """ Computes the noisiness of the signals from their harmonic and power amplitudes.
         Inputs:
             powerAmplitudes   : Array containing the power amplitudes of the signals
@@ -96,18 +134,18 @@ def noisiness(powerAmplitudes: np.array, harmonicAmplitudes: np.array, axis: int
             with the exception of axis <axis> which is removed.
     """
 
-    tEnergy   = energy(powerAmplitudes, axis = axis)
-    hEnergy   = energy(harmonicAmplitudes, axis = axis)
+    tEnergy   = _energy(powerAmplitudes, axis = axis)
+    hEnergy   = _energy(harmonicAmplitudes, axis = axis)
     noisiness = (tEnergy - hEnergy) / tEnergy
 
     return noisiness
 
 
-def oddToEvenEnergyRatio(amplitudes: np.array, axis: int) -> np.array:
+def _oddToEvenEnergyRatio(amplitudes: np.array, axis: int) -> np.array:
     """ Computes the odd to even harmonic energy ratio.
         Inputs: 
             amplitudes: Array of arbitrary dimensions containing the harmonic amplitudes
-            axis: Axis along which to evaluate the ratio
+            axis      : Axis along which to evaluate the ratio
         Outputs:
             oer: odd-to-even harmonic energy ratio. Dimensions of the array match the dimensions
                 of the input amplitudes, with the exception of axis <axis> which has been removed.
@@ -125,11 +163,11 @@ def oddToEvenEnergyRatio(amplitudes: np.array, axis: int) -> np.array:
     return oer
 
 
-def tristimulus(amplitudes: np.array, axis: int) -> np.array:
+def _tristimulus(amplitudes: np.array, axis: int) -> np.array:
     """ Computes the tristimulus.
         Inputs: 
             amplitudes: Array containing amplitudes, of arbitrary dimensions.
-            axis: Axis along which the computations will be performed
+            axis      : Axis along which the computations will be performed
         Outputs:
             out: Tristimulus coefficients. Their dimensions equal the dimensions of the
                 input amplitudes, with axis <axis> containing only 3 elements (= first, 
@@ -146,7 +184,7 @@ def tristimulus(amplitudes: np.array, axis: int) -> np.array:
     return out
 
 
-def deviation(
+def _deviation(
     frequencies: np.array, amplitudes: np.array, harmonicFrequencies: np.array, 
     harmonicAmplitudes: np.array, sampleFrequency: int, axis: int):
     """ Computes the harmonic spectral deviation (i.e. the deviation of the amplitude harmonic peaks

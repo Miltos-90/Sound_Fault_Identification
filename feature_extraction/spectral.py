@@ -5,6 +5,77 @@ from scipy.fftpack import dct
 import numpy as np
 
 
+def features(
+    frequencies: np.array, amplitudes: np.array, sampleFrequency: int, 
+    numMFCC: int, timeAxis: int, spectralAxis: int) -> np.array:
+    """ Extracts all spectral features in the frequency-domain from an array of signals.
+        Inputs:
+            frequencies     : Frequency vector at which the amplitudes have been computed.
+            amplitudes      : Array of spectral amplitudes.
+            sampleFrequency : Sampling rate in Hertz.
+            numMFCC         : Number of Mel Frequency Cepstral Coefficients (MFCC) to be extracted.
+            timeAxis        : Axis along which the amplitudes are arranged over time (time frame/window-axis).
+            spectralAxis    : Axis along which the amplitudes are arranged over frequency (frequency-axis).
+        Outputs:
+            features: Array of features extracted in the time-domain. The output array
+                      has the same dimensions as the input signal array, with the exception of
+                      axis <axis>, which contains (3 * numMFCC + 8) elements (i.e. features).
+    """
+
+    varTime = _variation(amplitudes, timeAxis = timeAxis, spectralAxis = spectralAxis)
+    mfcc    = _mfcc(amplitudes, sampleFrequency, numCoefficients = numMFCC, numMelFilters = numMFCC * 3, axis = spectralAxis)
+    dmfcc   = np.diff(mfcc, axis = spectralAxis)
+
+    out = np.concatenate(
+        [
+            _shape(   frequencies, amplitudes, axis = spectralAxis),
+            _slope(   frequencies, amplitudes, axis = spectralAxis),
+            _decrease(frequencies, amplitudes, axis = spectralAxis),
+            _rolloff( frequencies, amplitudes,  axis = spectralAxis),
+            _variation(amplitudes, timeAxis = timeAxis, spectralAxis = spectralAxis),
+            varTime.mean(  axis = spectralAxis, keepdims = True),
+            varTime.std(   axis = spectralAxis, keepdims = True),
+            amplitudes.max(axis = spectralAxis, keepdims = True),
+            mfcc, dmfcc, np.diff(dmfcc, axis = spectralAxis)
+        ],
+        axis = spectralAxis
+    )
+
+    return out
+
+
+def featuresSmall(frequencies: np.array, amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.array:
+    """ Extracts some spectral features in the frequency-domain from an array of signals.
+        Inputs:
+            frequencies    : Frequency vector at which the amplitudes have been computed.
+            amplitudes     : Array of spectral amplitudes.
+            sampleFrequency: Sampling rate in Hertz.
+            numMFCC        : Number of Mel Frequency Cepstral Coefficients (MFCC) to be extracted.
+            timeAxis       : Axis along which the amplitudes are arranged over time (time frame/window-axis).
+            spectralAxis   : Axis along which the amplitudes are arranged over frequency (frequency-axis).
+        Outputs:
+            features: Array of features extracted in the time-domain. The output array
+                      has the same dimensions as the input signal array, with the exception of
+                      axis <spectralAxis>, which contains 9 elements (i.e. features).
+    """
+
+    varTime = _variation(amplitudes, timeAxis = timeAxis, spectralAxis = spectralAxis)
+
+    out = np.concatenate(
+        [
+            _shape(   frequencies, amplitudes, axis = spectralAxis),
+            _slope(   frequencies, amplitudes, axis = spectralAxis),
+            _decrease(frequencies, amplitudes, axis = spectralAxis),
+            _rolloff( frequencies, amplitudes, axis = spectralAxis),
+            varTime.mean(axis = spectralAxis, keepdims = True),
+            varTime.std( axis = spectralAxis, keepdims = True),
+        ],
+        axis = spectralAxis
+    )
+
+    return out
+
+
 def _normalizeSpectrum(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array:
     """ Normalizes the amplitudes of a spectrum. 
         Inputs:
@@ -50,8 +121,7 @@ def _getMoments(x: np.array, y: np.array, moments: list, axis: int) -> np.array:
     return out
 
 
-def shapeDescriptors(frequencies: np.array, amplitudes: np.array, axis: int, 
-    normalize: bool = True) -> np.array:
+def _shape(frequencies: np.array, amplitudes: np.array, axis: int, normalize: bool = True) -> np.array:
     """ Computes several descriptors of the spectral shape.
         Inputs:
             frequencies: Vector containing the frequencies corresponding to the spectral amplitudes.
@@ -94,7 +164,7 @@ def shapeDescriptors(frequencies: np.array, amplitudes: np.array, axis: int,
     return out
 
 
-def slope(x: np.array, y: np.array, axis: int) -> np.array:
+def _slope(x: np.array, y: np.array, axis: int) -> np.array:
     
     """ Evaluates the slope of a linear regression model on the given data in a vectorized manner.
         Inputs: 
@@ -122,7 +192,7 @@ def slope(x: np.array, y: np.array, axis: int) -> np.array:
     return s
 
 
-def decrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array:
+def _decrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array:
     """ Computes the gradual decrease in spectral energy as the frequency 
         increases in the frequency domain.
         Inputs: 
@@ -146,7 +216,7 @@ def decrease(frequencies: np.array, amplitudes: np.array, axis: int) -> np.array
     return decrease
 
 
-def rolloffFrequency(frequencies: np.array, amplitudes: np.array, axis: int, 
+def _rolloff(frequencies: np.array, amplitudes: np.array, axis: int, 
     threshold: float = 0.95) -> np.array:
     """ Computes the spectral roll-off point, i.e. the frequency so that 95% of the
         signal energy is contained below this frequency.
@@ -183,7 +253,7 @@ def rolloffFrequency(frequencies: np.array, amplitudes: np.array, axis: int,
     return rolloffFrequency
 
 
-def variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.array:
+def _variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.array:
     """ Computes the spectral variation (also known as spectral flux), i.e.e the amount of 
         variation of the spectrum along time, as the normalized cross-correlation between two
         successive amplitude spectra across time.
@@ -221,7 +291,7 @@ def variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.arra
     return out
 
 
-def mfcc(
+def _mfcc(
     amplitudes: np.array, sampleFrequency: int, numCoefficients: int, 
     numMelFilters: int, axis: int) -> np.array:
     """ Computes the Mel-frequency cepstral coefficients (MFCCs).

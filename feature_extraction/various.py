@@ -15,8 +15,8 @@ def tonality(amplitudes: np.array, axis: int) -> np.array:
     """
 
     eps            = np.finfo(float).eps
-    geometricMean  = np.exp(np.mean(np.log(amplitudes + eps), axis = axis))
-    arithmeticMean = np.mean(amplitudes, axis = axis)
+    geometricMean  = np.exp(np.mean(np.log(amplitudes + eps), axis = axis, keepdims = True))
+    arithmeticMean = np.mean(amplitudes, axis = axis, keepdims = True)
 
     # Spectral flatness
     flatness = geometricMean / (arithmeticMean + eps)

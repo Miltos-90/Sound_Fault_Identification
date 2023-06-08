@@ -3,6 +3,26 @@
 import numpy as np
 from .preprocessing import take
 
+def features(signal: np.array, autocorrelationLags: int, axis: int) -> np.array:
+    """ Extracts all temporal features in the time-domain from an array of signals.
+        Inputs:
+            signal: Array containing signals in the time-domain for which the 
+                    features will be extracted.
+            axis:   Axis along which the signals (time-series) are arranged over time.
+        Outputs:
+            features: Array of features extracted in the time-domain. The output array
+                has the same dimensions as the input signal array, with the exception of
+                axis <axis>, which contains <numAutocorrelationlags> + 1 elements (i.e. features).
+    """
+
+    features = np.concatenate([
+        _autocorrelation(signal, numLags = autocorrelationLags, axis = axis),
+        _zeroCrossingRate(signal, axis = axis)
+        ], axis = 1)
+
+    return features
+
+
 def _makeEinsumNotation(numDims: int, axis: int) -> str:
     """ Generates the einsum notation for the inner product of
         two matrices of equal dimensions along an axis.
@@ -40,7 +60,8 @@ def _makeEinsumNotation(numDims: int, axis: int) -> str:
     
     return notation
 
-def autocorrelation(x: np.array, numLags: int, axis: int, center: bool = False) -> np.array:
+
+def _autocorrelation(x: np.array, numLags: int, axis: int, center: bool = False) -> np.array:
     """ Computes the autocorrelation of the signals along one dimension of a matrix, and
         returns the autocorrelation coefficients.
         Inputs:
@@ -100,7 +121,8 @@ def autocorrelation(x: np.array, numLags: int, axis: int, center: bool = False) 
 
     return take(acf, np.arange(1, lagLen), axis = axis)
 
-def zeroCrossingRate(x: np.array, axis: int) -> np.array:
+
+def _zeroCrossingRate(x: np.array, axis: int) -> np.array:
     """ Computes the zero-crossing rate (i.e. number of sign changes) along one dimension of an arbitrarily shaped matrix.
     Inputs:
     x   : Matrix containing the data
