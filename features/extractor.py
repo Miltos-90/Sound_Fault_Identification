@@ -5,7 +5,7 @@
 import numpy as np
 from typing import Literal
 from . import preprocessing as pre
-from . import temporal, spectral, harmonic, perceptual, time, various
+from . import temporal, spectral, harmonic, perceptual, time, various, temporal_global
 
 
 def makeFeatures(
@@ -165,7 +165,6 @@ def makeFeatures(
     features = np.concatenate([
         harmonic.features(freqs, powampsDB, hFreqs, hAmps, pFreqs, pAmps, fs, harmonics, sAxis),
         spectral.features(freqs, np.abs(amps), fs, numMFCC, tAxis, sAxis),
-        pre.take(pAmps, np.arange(1, pAmps.shape[sAxis]), axis = sAxis),
         spectral.featuresSmall(barkScales, barkAmps, tAxis, sAxis),
         temporal.features(ampEnvelope, numLags, axis = sAxis),
         temporal.features(rmsEnvelope, numLags, axis = sAxis),
@@ -173,8 +172,6 @@ def makeFeatures(
         spectral.featuresSmall(hFreqs, hAmps, tAxis, sAxis),
         perceptual.features(loudness, tAxis, sAxis),
         various.tonality(poweramps, sAxis),
-        time.features(chunks, sAxis),
-        octaveampsDB, pFreqs,
         ], axis = sAxis)
 
     # Get weighted-average of all features over time. Weights are the instantaneous
@@ -182,4 +179,9 @@ def makeFeatures(
     weights     = loudness.mean(axis = sAxis, keepdims = True)
     weightedAvg = np.nanmean(features * weights, axis = tAxis) / weights.sum(axis = tAxis)
     
+    # Add those after weighting the other ones
+    #temporal_global.features(freqs, poweramps.mean(axis = tAxis), harmonics, tAxis),
+    #octaveampsDB.mean(axis = tAxis),
+    #time.features(signal, tAxis),
+
     return weightedAvg

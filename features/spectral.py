@@ -35,7 +35,6 @@ def features(
             _variation(amplitudes, timeAxis = timeAxis, spectralAxis = spectralAxis),
             varTime.mean(  axis = spectralAxis, keepdims = True),
             varTime.std(   axis = spectralAxis, keepdims = True),
-            amplitudes.max(axis = spectralAxis, keepdims = True),
             mfcc, dmfcc, np.diff(dmfcc, axis = timeAxis, prepend = 0.0)
         ],
         axis = spectralAxis

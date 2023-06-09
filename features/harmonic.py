@@ -34,7 +34,6 @@ def features(
             _noisiness(amplitudes, harmonicAmplitudes, axis),
             _oddToEvenEnergyRatio( harmonicAmplitudes, axis),
             _tristimulus(harmonicAmplitudes,   axis = axis),
-            pre.take(harmonicFrequencies, [0], axis = axis) # 1st harmonic frequency = fundamental frequency
         ],
         axis = axis
     )

@@ -18,7 +18,7 @@ def features(signal: np.array, autocorrelationLags: int, axis: int) -> np.array:
     features = np.concatenate([
         _autocorrelation(signal, numLags = autocorrelationLags, axis = axis),
         _zeroCrossingRate(signal, axis = axis)
-        ], axis = 1)
+        ], axis = axis)
 
     return features
 
@@ -116,8 +116,10 @@ def _autocorrelation(x: np.array, numLags: int, axis: int, center: bool = False)
     # Compute autocorrelation function
     acf = acov / np.expand_dims(acov[..., 0], -1)
 
-    # Swapaxes to match input matrix dimensions
-    acf = np.swapaxes(acf, axis, -1)
+    # Transpose axes to match input matrix dimensions
+    axes = [i for i in range(acf.ndim - 1)]
+    axes.insert(axis, acf.ndim - 1)
+    acf  = np.transpose(acf, axes = axes)
 
     return take(acf, np.arange(1, lagLen), axis = axis)
 
