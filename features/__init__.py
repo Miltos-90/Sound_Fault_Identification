@@ -1,1 +1,0 @@
-from .extractor import makeFeatures as extract
