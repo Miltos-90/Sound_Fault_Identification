@@ -95,4 +95,7 @@ def spectrogram(
     elif scale == 'bark': filters = barkBank(numFFT, numFilters, sampleFrequency)
 
     notation = _makeEinsumNotation(amplitudes.ndim, filters.ndim, axis = axis)
+
+    print(amplitudes.shape, filters.shape, notation)
+
     return np.einsum(notation, amplitudes, filters)

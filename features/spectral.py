@@ -23,9 +23,9 @@ def features(
     """
 
     varTime = _variation(amplitudes, timeAxis = timeAxis, spectralAxis = spectralAxis)
-    mfcc    = _mfcc(amplitudes, sampleFrequency, numCoefficients = numMFCC, numMelFilters = numMFCC * 3, axis = spectralAxis)
+    mfcc    = _mfcc(amplitudes, sampleFrequency, numMFCC, numMFCC * 3, timeAxis, spectralAxis)
     dmfcc   = np.diff(mfcc, axis = timeAxis, prepend = 0.0)
-
+    
     out = np.concatenate(
         [
             _shape(   frequencies, amplitudes, axis = spectralAxis),
@@ -292,7 +292,7 @@ def _variation(amplitudes: np.array, timeAxis: int, spectralAxis: int) -> np.arr
 
 def _mfcc(
     amplitudes: np.array, sampleFrequency: int, numCoefficients: int, 
-    numMelFilters: int, axis: int) -> np.array:
+    numMelFilters: int, timeAxis: int, spectralAxis: int) -> np.array:
     """ Computes the Mel-frequency cepstral coefficients (MFCCs).
         Inputs:
             amplitudes     : Matrix of complex FFT amplitudes (arbitrary dimensions)
@@ -300,7 +300,8 @@ def _mfcc(
             numCoefficients: Number of coefficients to evaluate. Note that the first coefficient, 
                              being directly proportional to the energy is not returned.
             numMelFilters  : Number of Mel filters to be used for the conversion to Mel scale.
-            axis           : Axis along which to compute the MFCCs
+            timeAxis       : Axis along which the amplitudes are arranged over time (time frame/window-axis).
+            spectralAxis   : Axis along which the amplitudes are arranged over frequency (frequency-axis).
         Outputs:
             MFCCs: Matrix of MFCCs. Dimensions are the same as the input amplitudes, with 
                    the exception of axis <axis>, which contains <numCoefficients> elements.
@@ -310,17 +311,20 @@ def _mfcc(
     if numCoefficients > numMelFilters: numCoefficients = numMelFilters + 1
 
     # Apply mid-ear filter on the input amplitudes
-    _, weights = pre.filters.midEar(sampleFrequency, worN = amplitudes.shape[axis])
-    weights    = pre.expand(weights, amplitudes.ndim, axis)
+    _, weights = pre.filters.midEar(sampleFrequency, worN = amplitudes.shape[timeAxis])
+    weights    = pre.expand(weights, amplitudes.ndim, timeAxis)
     amps       = np.abs(amplitudes * weights)
     
     # Mel band conversion
     melEnergy  = pre.scales.spectrogram(amps, sampleFrequency, 
-        numFilters = numMelFilters, scale = 'mel', axis = axis)
+        numFilters = numMelFilters, scale = 'mel', axis = timeAxis)
 
     # cepstrum and MFCC
-    melEnergydB = pre.powerTodb(melEnergy)
-    cepstrum    = dct(melEnergydB, axis = axis, norm = "ortho")
-    mfcc        = pre.take(cepstrum, np.arange(1, numCoefficients + 1), axis = axis)
+    eps         = np.finfo(np.float64).eps
+    melEnergydB = pre.powerTodb(melEnergy + eps)
+    cepstrum    = dct(melEnergydB, axis = timeAxis, norm = "ortho")
+
+    print(amps.shape, melEnergy.shape, cepstrum.shape, timeAxis, spectralAxis)
+    mfcc        = pre.take(cepstrum, np.arange(1, numCoefficients + 1), axis = spectralAxis)
 
     return mfcc
