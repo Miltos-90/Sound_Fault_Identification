@@ -48,7 +48,7 @@ def featureExtractor(filepath, fs = SAMPLE_FREQUENCY, axis = 0):
 if __name__ == '__main__':
 
     numCores = 4
-    folder   = './data/-6_dB_fan'
+    folder   = './data'
     
     df = utils.indexFiles(folder)
     numSamples = df.shape[0]
