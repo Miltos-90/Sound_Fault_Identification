@@ -21,12 +21,11 @@ for _, dfChunk in df.groupby(np.arange(len(df)) // 10):
 
 
 signals = np.stack(signals, axis = -1)
-#signals = signals[0:80000, 0:2, 0:2]
+signals = signals[0:80000, 0:2, 0:2]
 f = features.extract(signals, sampleFrequency, axis = 0)
 print(f'Signal shape {signals.shape}. Feature shape {f.shape}. Nans {np.isnan(f).sum() / f.size * 100}')
 
 
-"""
 # CHECK IF IT WORKS IN ALL DIMENSION AND SIGNAL ARRAYS
 signals = signals.swapaxes(0, 1)
 f = features.extract(signals, sampleFrequency, axis = 1)
@@ -47,5 +46,3 @@ print(f'Signal shape {signals.shape}. Feature shape {f.shape}. Nans {np.isnan(f)
 signals = signals[:, 0]
 f = features.extract(signals, sampleFrequency, axis = 0)
 print(f'Signal shape {signals.shape}. Feature shape {f.shape}. Nans {np.isnan(f).sum() / f.size * 100}')
-print(f.min(), f.max())
-"""
