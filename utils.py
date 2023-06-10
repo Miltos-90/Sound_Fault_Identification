@@ -6,17 +6,17 @@ import pandas as pd
 from scipy.io import wavfile
 
 
-def indexFiles(filePath: str):
+def indexFiles(filePath: str, extension: str = '.wav'):
     """ Indexes all files and extracts some metadata and the target. """
 
     data = list()
 
-    for root, dirs, files in os.walk(filePath):
+    for root, _, files in os.walk(filePath):
 
         for filename in files:
-            nm, ext = os.path.splitext(filename)
+            _, ext = os.path.splitext(filename)
 
-            if ext.lower().endswith('.wav'):
+            if ext.lower().endswith(extension):
 
                 fullpath = os.path.join(os.path.abspath(root), filename)
                 rootPart = root.split('\\')
@@ -38,12 +38,12 @@ def readWav(filepath: str, micID: int = None, signalType = None):
         not specified, it returns the recordings of all microphones.
     """
 
-    fs, data = wavfile.read(filepath) # Read file
+    _, data = wavfile.read(filepath) # Read file
     if micID is not None: 
         data = data[:, micID]   # Return specific mic. record
         data = data[:, None]    # Add a new axis for shape consistency
 
     if signalType: data = data.astype(signalType)
-    return fs, data
+    return data
 
 

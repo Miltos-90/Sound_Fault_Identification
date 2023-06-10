@@ -1,0 +1,11 @@
+NumDatapoints = 20
+
+49.72 seconds with 2 cores.
+30.02 seconds with 4 cores.
+29.94 seconds with 6 cores.
+28.83 seconds with 9 cores
+26.55 seconds with 11 cores.
+
+
+
+TOTAL for ~160,000 files: __ [sec] * 160,000 / NumDatapoints * 1 / 3600 = ____ hrs
