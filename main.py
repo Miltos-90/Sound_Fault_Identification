@@ -41,13 +41,13 @@ def featureExtractor(filepath, fs = SAMPLE_FREQUENCY, axis = 0):
         signal = utils.readWav(filepath, signalType = 'float')
         feats  = features.extract(signal, fs, axis = axis)
         np.save(outPath, feats)
-        
-    return
 
+    return
+    
 
 if __name__ == '__main__':
 
-    numCores = 4
+    numCores = 6
     folder   = './data'
     
     df = utils.indexFiles(folder)
@@ -57,9 +57,10 @@ if __name__ == '__main__':
         joblib.Parallel(n_jobs = numCores)(
             joblib.delayed(featureExtractor)(fPath) for fPath in df['filepath'].values)
 
-
-
-
+    #f = 'C://Users//kalika01//Desktop//MIMII - Sound dataset for malfunctioning industrial//data//6_dB_slider//slider//id_00//abnormal//00000057.wav'
+    #signal = utils.readWav(f, signalType = 'float')
+    #feats  = features.extract(signal, fs = SAMPLE_FREQUENCY, axis = 0)
+    #print(feats[:,0])
 
 """
 # CHECK IF IT WORKS IN ALL DIMENSION AND SIGNAL ARRAYS
