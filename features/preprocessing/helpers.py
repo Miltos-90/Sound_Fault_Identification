@@ -95,22 +95,6 @@ def _makeSlice(numDims: int, indices: np.array, axis: int) -> tuple:
 
     return tuple(ix)
 
-"""
-def take(x: np.array, indices: Union[int, np.array], axis: int) -> np.array:
-    # Retrieves slices from a given axis of a numpy array. 
-        Inputs:
-            x      : n-dimensional matrix from which the slices will be retrieved
-            indices: Array of (integers) indices to be retrieved
-            axis   : Axis of <x> from which the indices will be extracted
-
-        Outputs:
-            n-dimensional matrix containing only the indices <ind> along axis <axis>
-    #
-    
-    return x[_makeSlice(x.ndim, indices = indices, axis = axis)]
-    #return np.take(x, indices, axis)
-"""
-
 
 def _medianFrequencyDiff(x: np.array, axis: int) -> np.array:
     """ Computes the median of the 1st-order difference of a matrix along a given axis.
