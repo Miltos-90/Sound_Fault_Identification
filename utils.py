@@ -4,6 +4,31 @@ import os
 import numpy as np 
 import pandas as pd
 from scipy.io import wavfile
+from features import extract
+
+
+def featureExtractor(filepath: str, fs: int = 16000, axis: int = 0):
+    """ Wraps the feature extractor (see feeatures folder) to read an input .wav file,
+        extract the features, and save thm on an .npy file.
+        Inputs:
+            filepath: Path to .wav file
+            fs      : Sampling rate in Hertz
+            axis    : Axis along which to extract the features from the signal
+                      contained in the .wav file
+        Outputs: None
+    """
+
+    # Make path to output features file (simply change the extension)
+    outPath = filepath.strip('.wav') + '.npy'
+
+    # If the output file does not exist, load the signal, process it
+    # and save the extracted features
+    if not os.path.isfile(outPath):
+        signal = readWav(filepath, signalType = 'float')
+        feats  = extract(signal, fs, axis = axis)
+        np.save(outPath, feats)
+
+    return
 
 
 def indexFiles(filePath: str, extension: str = '.wav'):
