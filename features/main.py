@@ -11,10 +11,6 @@ from typing import Literal
 from . import preprocessing as pre
 from . import temporal, spectral, harmonic, perceptual, time, various, temporal_global
 
-# Ignore nan-division errors. They are being overwritten in the code.
-np.seterr(divide='ignore', invalid='ignore')
-
-
 @contextlib.contextmanager
 def tqdmJoblib(tqdm_object):
     """ Context manager to patch joblib to report into tqdm progress bar given as argument.
