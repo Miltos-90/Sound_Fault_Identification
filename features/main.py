@@ -142,16 +142,19 @@ def extract(
         octaveDesignator: Designator of the octave band whose spectrum will be included
                           as a features (i.e. =3 for 1/3 octave band, etc..)
         axis        : Axis along which the signals are arranged over time
+
+    NOTE: The default values correspond to the ones recommended in [1].
+    
     Outputs:
         features    : Array of extracted features. It's dimensions equal the dimensions
                       of the input signal array with the excpetion of axis <axis> which
                       contains the extracted features.
 
     References:
-        "A large set of audio features for sound description (similarity and classification)
-        in the CUIDADO project", Peeters G., 2004.
-        URL: http://recherche.ircam.fr/anasyn/peeters/ARTICLES/Peeters_2003_cuidadoaudiofeatures.pdf
-        (accessed 11/05/2023)
+        [1] "A large set of audio features for sound description (similarity and classification)
+            in the CUIDADO project", Peeters G., 2004.
+            URL: http://recherche.ircam.fr/anasyn/peeters/ARTICLES/Peeters_2003_cuidadoaudiofeatures.pdf
+            (accessed 11/05/2023)
 
     NOTE: The peakFinder() function returns nans if less than <numHarmonics> peaks are found. These will
           propagated to the 'pFreqs', 'pAmps' arrays of the temporal_globapy.py features, that populate the
