@@ -68,26 +68,28 @@ def featureExtractor(filepath: str, axis: int = 0):
     if not os.path.isfile(outPath):
         signal = readWav(filepath, signalType = 'float')
         feats  = extract(
-            signal = signal, 
-            fs = config.FS, 
-            frameSize = config.FRAME_SIZE, 
-            hopSize = 2 ** 10, 
-            envFrameSize = 2 ** 9,  
-            envHopSize = 2 ** 6, 
-            padType = 'center', 
-            padValue = 0.0, 
-            numFilters = 24, 
-            harmonics = 10, 
-            numMFCC = 12, numLags = 12, 
-            octaveDesignator = 3,
-            axis = axis)
+            signal = signal, axis = axis,
+            fs           = config.FS, 
+            frameSize    = config.FRAME_SIZE, 
+            hopSize      = config.HOP_SIZE, 
+            envFrameSize = config.ENVELOPE_FRAME_SIZE,  
+            envHopSize   = config.ENVELOPE_HOP_SIZE, 
+            padType      = config.PAD_TYPE, 
+            padValue     = config.PAD_VALUE, 
+            numFilters   = config.NUM_FILTERS, 
+            harmonics    = config.HARMONICS, 
+            numMFCC      = config.NUM_MFCC, 
+            numLags      = config.NUM_LAGS, 
+            octaveDesignator = config.OCTAVE,
+            )
         np.save(outPath, feats)
 
     return
 
 
-def handleMissingValues(
-    X:np.array, threshold: float = config.MISSING_THRESHOLD, fillValue: float = config.FILL_VALUE) -> np.array:
+def handleMissingValues(X:np.array, 
+    threshold: float = config.MISSING_THRESHOLD, 
+    fillValue: float = config.FILL_VALUE) -> np.array:
     """ Handles the missing values of a predictor matrix X. It will drop features (columns) with 
         a percentage of missing values higher than a threshold, and will fill the remaining the 
         remaining missing values with a constant. 
