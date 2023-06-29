@@ -3,9 +3,10 @@
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 
-def classWeights(targets: np.array) -> dict:
+
+def _classWeights(targets: np.array) -> dict:
     """ Computes the class weights from a 1d-array of classes (targets).
         Inputs:
             targets: 1D Array with the targets of a multi-class classification problem
@@ -13,7 +14,7 @@ def classWeights(targets: np.array) -> dict:
             weightDict: Dictionary of classNames: classWeights
     """
 
-    yBin     = pd.get_dummies(targets)  # Binary matrix w/ dimensions:  Num.samples x Num.classes
+    yBin     = pd.get_dummies(targets)            # Binary matrix w/ dimensions:  Num.samples x Num.classes
     counts   = np.bincount(yBin.values.argmax(1)) # Num samples per target
     nSamples = targets.shape[0]
     nClasses = yBin.max()
@@ -23,7 +24,17 @@ def classWeights(targets: np.array) -> dict:
     return wDict
 
 
-def crossValidate(X: np.array, y: np.array, groups: np.array, params: dict, numFolds: int) -> list:
+def _sample(d: dict) -> dict:
+    """ Selects a random value from each list field of a dictionary.
+        Inputs:
+            d: Dict of keys:values (of type list)
+        Outputs:
+            Dict of of keys: random choice(values)
+    """
+    return {k: np.random.choice(v) for k, v in d.items()}
+
+
+def _crossValidate(X: np.array, y: np.array, groups: np.array, params: dict, numFolds: int) -> list:
     """ Performs cross validation.
         Inputs:
             X       : Matrix of predictors w/ dimensions: Num. samples x Num. features
@@ -35,38 +46,38 @@ def crossValidate(X: np.array, y: np.array, groups: np.array, params: dict, numF
             scores: Array containing the error metric on the validation set
      """
 
-    wDict  = classWeights(y)
-    scores = np.empty(numFolds)
+    wDict  = _classWeights(y)
+    scores = np.nan * np.ones(numFolds)
+    mapper = lambda d, arr: np.vectorize(d.get)(arr)
     cDict  = {k:i for i, (k, _) in enumerate(wDict.items())}
     skf    = StratifiedKFold(
         n_splits = numFolds, shuffle = True, random_state = params['seed']
     )
-    
-    for i, (trainIdx, testIdx) in enumerate(skf.split(X, y, groups = groups)):
 
+    for i, (trainIdx, testIdx) in enumerate(skf.split(X, groups)):
+
+        # Split train/test
         Xtrain, ytrain = X[trainIdx, :], y[trainIdx]
         Xtest,  ytest  = X[testIdx, :],  y[testIdx]
 
-        wtrain   = np.vectorize(wDict.get)(ytrain)
-        wtest    = np.vectorize(wDict.get)(ytest)
+        # Compute class weights
+        wtrain, wtest  = mapper(wDict, ytrain), mapper(wDict, ytest)
+        ytrain, ytest  = mapper(cDict, ytrain), mapper(cDict, ytest)
 
-        ytrain   = np.vectorize(cDict.get)(ytrain)
-        ytest    = np.vectorize(cDict.get)(ytest)
-
+        # Make lgb datasets
         trainSet = lgb.Dataset(Xtrain, label = ytrain, weight = wtrain)
         testSet  = lgb.Dataset(Xtest, label = ytest, weight = wtest, reference = trainSet)
 
-        model = lgb.train(params, trainSet,
+        # Train model
+        model = lgb.train(params,
+            train_set       = trainSet,
             valid_sets      = [testSet], 
             valid_names     = ['val'],
             num_boost_round = params['num_boost_round'],
-            callbacks       = [
-                lgb.early_stopping(
-                    stopping_rounds = params['early_stopping_rounds']
-                    )
-                ]
+            callbacks       = [lgb.early_stopping(stopping_rounds = params['early_stopping_rounds'])]
             )
 
+        # Get error metric on the validation set
         scores[i] = model.best_score['val'][params['metric']]
-
+    
     return scores
