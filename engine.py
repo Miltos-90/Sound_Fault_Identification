@@ -3,10 +3,12 @@
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
+from typing import Tuple
+import config
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 
 
-def _classWeights(targets: np.array) -> dict:
+def classWeights(targets: np.array) -> dict:
     """ Computes the class weights from a 1d-array of classes (targets).
         Inputs:
             targets: 1D Array with the targets of a multi-class classification problem
@@ -46,7 +48,7 @@ def _crossValidate(X: np.array, y: np.array, groups: np.array, params: dict, num
             scores: Array containing the error metric on the validation set
      """
 
-    wDict  = _classWeights(y)
+    wDict  = classWeights(y)
     scores = np.nan * np.ones(numFolds)
     mapper = lambda d, arr: np.vectorize(d.get)(arr)
     cDict  = {k:i for i, (k, _) in enumerate(wDict.items())}
@@ -81,3 +83,47 @@ def _crossValidate(X: np.array, y: np.array, groups: np.array, params: dict, num
         scores[i] = model.best_score['val'][params['metric']]
     
     return scores
+
+
+def randomSearchCV(
+    X: np.array, y: np.array, groups: np.array,
+    numSearch   : int  = config.NUM_RS, 
+    numFolds    : int  = config.NUM_FOLDS,
+    fixedParams : dict = config.FIXED_PARAMS,
+    hyperParams : dict = config.HYPER_SPACE,
+    ) -> Tuple[dict, float]:
+    """ Performs random hyperparameter search with cross-validation.
+        
+        Inputs:
+            X          : Predictors' array w/ dimensions Num. samples x Num. features
+            y          : Targets array w/ dimensions: (Num. samples,)
+            groups     : Groups (for CV split stratification) w/ dimensions: (Num. samples,)
+            numSearch  : Number of (random) search iterations
+            numFolds   : Number of cross-validation folds
+            fixedParams: Dictionary containing the fixed parameters used during training
+            hyperParams: Dictionary containing arrays of hyperparameters to sample from
+                         during training.
+        
+        Outputs:
+            bestParams: Best combination of parameters to train the model
+            bestScore : Corresponding average error metric on the validation 
+                        set over all folds.
+    """
+
+    bestScore, bestParams = np.inf, None
+
+    for _ in range(numSearch):
+        
+        # Make a random hyperparameter sample
+        params = {**fixedParams, **_sample(hyperParams)}
+
+        # Run cross-validation
+        scores = _crossValidate(X, y, groups, params, numFolds)
+
+        # Store best score and corresponding hyperparameters
+        avgScore = scores.mean()
+        if  avgScore < bestScore:
+            bestScore  = avgScore
+            bestParams = params
+    
+    return bestParams, bestScore
