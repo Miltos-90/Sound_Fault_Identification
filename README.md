@@ -19,7 +19,7 @@ All machine types have been subjected to various anomalies (not known), includin
 
 The sound recordings were collected using a circular microphone array that consists of 8 distinct microphones. This microphone array was kept at a distance of 50 cm away from the machines (or 10 cm in the case of valves), and recorded 16-bit, 8-channel, 10-second sound segments sampled at 16 kHz, mixed with backgroung noise (at various levels) from multiple real factories to simulate real operating environments. Using these measurements, a classifier will be built to detect if all machines operate under normal (healthy) conditions, or which machine type is operating under the presence of a fault.
 
-<img src="/imm/equipment_schematic.png" width="35%">
+<img src="./imm/equipment_schematic.PNG" width="35%">
 
 
 ## Load data
