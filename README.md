@@ -43,9 +43,6 @@ from sklearn.metrics import confusion_matrix, classification_report
 # Read data
 df = utils.indexFiles(filePath = './data')
 
-# Get ID of the closest mic to the corresponding machine_type
-df['closest_mic'] = df['machine_type'].map({'valve': 0, 'pump': 2, 'fan': 4,'slider': 6})
-
 df.head(5)
 ```
 
@@ -81,7 +78,7 @@ df.head(5)
   <tbody>
     <tr>
       <th>0</th>
-      <td>c:\Users\kalika01\Desktop\MIMII - Sound datase...</td>
+      <td>\Desktop\MIMII - Sound datase...</td>
       <td>0</td>
       <td>fan</td>
       <td>-6_dB</td>
@@ -90,7 +87,7 @@ df.head(5)
     </tr>
     <tr>
       <th>1</th>
-      <td>c:\Users\kalika01\Desktop\MIMII - Sound datase...</td>
+      <td>\Desktop\MIMII - Sound datase...</td>
       <td>0</td>
       <td>fan</td>
       <td>-6_dB</td>
@@ -99,7 +96,7 @@ df.head(5)
     </tr>
     <tr>
       <th>2</th>
-      <td>c:\Users\kalika01\Desktop\MIMII - Sound datase...</td>
+      <td>\Desktop\MIMII - Sound datase...</td>
       <td>0</td>
       <td>fan</td>
       <td>-6_dB</td>
@@ -108,7 +105,7 @@ df.head(5)
     </tr>
     <tr>
       <th>3</th>
-      <td>c:\Users\kalika01\Desktop\MIMII - Sound datase...</td>
+      <td>\Desktop\MIMII - Sound datase...</td>
       <td>0</td>
       <td>fan</td>
       <td>-6_dB</td>
@@ -117,7 +114,7 @@ df.head(5)
     </tr>
     <tr>
       <th>4</th>
-      <td>c:\Users\kalika01\Desktop\MIMII - Sound datase...</td>
+      <td>\Desktop\MIMII - Sound datase...</td>
       <td>0</td>
       <td>fan</td>
       <td>-6_dB</td>
