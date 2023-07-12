@@ -71,23 +71,22 @@ def extract(
 
     Spectral features
     ===============================
-    1. Shape descriptors:
+    1.  Shape descriptors:
         * Spectral centroid
         * Spectral spread
         * Spectral skewness
         * Spectral kurtosis
-    2. Spectrum slope
-    3. Spectral decrease
-    4. Roll-off frequency
-    6. Spectral variation average (over time)
-    7. Spectral variation variance (over time)
-    8. Maximum amplitude
-    9. Mel-frequency cepstral coefficients (MFCC)
-    10. 1st derivative of MFCC (over time)
-    11. 2nd derivative of MFCC (over time)
-    12. Peak frequencies
-    13. Peak relative amplitudes (1st peak is omitted - normalized spectrum)
-    14. Amplitudes in 1/3 octave band
+    2.  Spectral slope
+    3.  Spectral decrease
+    4.  Roll-off frequency
+    6.  Spectral variation
+    7.  Maximum amplitude
+    8.  Mel-frequency cepstral coefficients (MFCC)
+    9.  1st derivative of MFCC (over time)
+    10. 2nd derivative of MFCC (over time)
+    11. Peak frequencies
+    12. Peak relative amplitudes (1st peak is omitted - normalized spectrum)
+    13. Amplitudes in 1/3 octave band
     ===============================
 
     Perceptual features
