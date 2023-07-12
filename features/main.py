@@ -79,7 +79,6 @@ def extract(
     2. Spectrum slope
     3. Spectral decrease
     4. Roll-off frequency
-    5. Spectral variation
     6. Spectral variation average (over time)
     7. Spectral variation variance (over time)
     8. Maximum amplitude
