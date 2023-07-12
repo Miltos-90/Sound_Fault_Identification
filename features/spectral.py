@@ -49,7 +49,7 @@ def featuresSmall(frequencies: np.array, amplitudes: np.array, timeAxis: int, sp
         Outputs:
             features: Array of features extracted in the time-domain. The output array
                       has the same dimensions as the input signal array, with the exception of
-                      axis <spectralAxis>, which contains 5 elements (i.e. features).
+                      axis <spectralAxis>, which contains 8 elements (i.e. features).
     """
 
     out = np.concatenate(
