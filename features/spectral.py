@@ -20,8 +20,6 @@ def features(
                       has the same dimensions as the input signal array, with the exception of
                       axis <axis>, which contains (3 * numMFCC + 8) elements (i.e. features).
     """
-
-    varTime = _variation(amplitudes, timeAxis = timeAxis, spectralAxis = spectralAxis)
     mfcc    = _mfcc(amplitudes, sampleFrequency, numMFCC, numMFCC * 3, spectralAxis)
     dmfcc   = np.diff(mfcc, axis = timeAxis, prepend = 0.0)
     
@@ -31,8 +29,7 @@ def features(
             _slope(   frequencies, amplitudes, axis = spectralAxis),
             _decrease(frequencies, amplitudes, axis = spectralAxis),
             _rolloff( frequencies, amplitudes,  axis = spectralAxis),
-            varTime.mean(  axis = spectralAxis, keepdims = True),
-            varTime.std(   axis = spectralAxis, keepdims = True),
+            _variation(amplitudes, timeAxis = timeAxis, spectralAxis = spectralAxis)
             mfcc, dmfcc, np.diff(dmfcc, axis = timeAxis, prepend = 0.0)
         ],
         axis = spectralAxis
