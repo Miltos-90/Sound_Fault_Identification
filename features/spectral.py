@@ -20,8 +20,8 @@ def features(
                       has the same dimensions as the input signal array, with the exception of
                       axis <axis>, which contains (3 * numMFCC + 8) elements (i.e. features).
     """
-    mfcc    = _mfcc(amplitudes, sampleFrequency, numMFCC, numMFCC * 3, spectralAxis)
-    dmfcc   = np.diff(mfcc, axis = timeAxis, prepend = 0.0)
+    mfcc  = _mfcc(amplitudes, sampleFrequency, numMFCC, numMFCC * 3, spectralAxis)
+    dmfcc = np.diff(mfcc, axis = timeAxis, prepend = 0.0)
     
     out = np.concatenate(
         [
