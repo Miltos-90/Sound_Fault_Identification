@@ -44,7 +44,6 @@ def featuresSmall(frequencies: np.array, amplitudes: np.array, timeAxis: int, sp
             frequencies    : Frequency vector at which the amplitudes have been computed.
             amplitudes     : Array of spectral amplitudes.
             sampleFrequency: Sampling rate in Hertz.
-            numMFCC        : Number of Mel Frequency Cepstral Coefficients (MFCC) to be extracted.
             timeAxis       : Axis along which the amplitudes are arranged over time (time frame/window-axis).
             spectralAxis   : Axis along which the amplitudes are arranged over frequency (frequency-axis).
         Outputs:
