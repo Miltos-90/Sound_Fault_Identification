@@ -50,10 +50,8 @@ def featuresSmall(frequencies: np.array, amplitudes: np.array, timeAxis: int, sp
         Outputs:
             features: Array of features extracted in the time-domain. The output array
                       has the same dimensions as the input signal array, with the exception of
-                      axis <spectralAxis>, which contains 9 elements (i.e. features).
+                      axis <spectralAxis>, which contains 5 elements (i.e. features).
     """
-
-    varTime = _variation(amplitudes, timeAxis = timeAxis, spectralAxis = spectralAxis)
 
     out = np.concatenate(
         [
@@ -61,8 +59,7 @@ def featuresSmall(frequencies: np.array, amplitudes: np.array, timeAxis: int, sp
             _slope(   frequencies, amplitudes, axis = spectralAxis),
             _decrease(frequencies, amplitudes, axis = spectralAxis),
             _rolloff( frequencies, amplitudes, axis = spectralAxis),
-            varTime.mean(axis = spectralAxis, keepdims = True),
-            varTime.std( axis = spectralAxis, keepdims = True),
+            _variation(amplitudes, timeAxis, spectralAxis)
         ],
         axis = spectralAxis
     )
