@@ -31,7 +31,6 @@ def features(
             _slope(   frequencies, amplitudes, axis = spectralAxis),
             _decrease(frequencies, amplitudes, axis = spectralAxis),
             _rolloff( frequencies, amplitudes,  axis = spectralAxis),
-            _variation(amplitudes, timeAxis = timeAxis, spectralAxis = spectralAxis),
             varTime.mean(  axis = spectralAxis, keepdims = True),
             varTime.std(   axis = spectralAxis, keepdims = True),
             mfcc, dmfcc, np.diff(dmfcc, axis = timeAxis, prepend = 0.0)
